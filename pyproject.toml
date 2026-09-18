@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "todo-agent"
+version = "0.1.0"
+description = "Personal to-do management agent with natural-language CLI and local browser GUI"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.34",
+    "flask>=3.0",
+]
+
+[project.scripts]
+todo = "todo_agent.cli.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["todo_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

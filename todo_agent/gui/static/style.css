@@ -1,0 +1,159 @@
+/* ---- Reset / base ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f0f2f5; color: #222; }
+
+/* ---- Header ---- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
+
+/* ---- Filter buttons ---- */
+.filters { display: flex; gap: 0.5rem; }
+.filter-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.filter-btn.active { background: #222; color: #fff; border-color: #222; }
+
+/* ---- Add lane ---- */
+.add-lane-area { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+.add-lane-area button, .add-lane-area input {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.add-lane-area button { cursor: pointer; background: #fff; }
+
+/* ---- Board ---- */
+#board {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 1rem;
+  align-items: flex-start;
+  min-height: calc(100vh - 60px);
+}
+
+/* ---- Lane column ---- */
+.lane-col {
+  min-width: 290px;
+  max-width: 320px;
+  background: #e8eaed;
+  border-radius: 10px;
+  padding: 0.75rem;
+  flex-shrink: 0;
+}
+.lane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+.lane-title { font-weight: 700; font-size: 0.95rem; }
+
+/* ---- Project section ---- */
+.project-section {
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+  border: 1px solid #ddd;
+}
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+.project-title { font-weight: 600; font-size: 0.9rem; flex: 1; }
+.project-meta { font-size: 0.75rem; color: #666; }
+.project-body { padding: 0.5rem; }
+
+/* ---- Item card ---- */
+.item-card {
+  background: #fff;
+  border-radius: 5px;
+  padding: 0.45rem 0.6rem;
+  margin-bottom: 0.35rem;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.item-card[data-status="completed"] { opacity: 0.6; }
+.item-title { font-size: 0.88rem; margin-bottom: 0.25rem; }
+.item-controls { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.item-controls select { font-size: 0.78rem; border: 1px solid #ccc; border-radius: 3px; padding: 0.1rem 0.25rem; }
+
+/* ---- Status badge colours (via data-status on the select wrapper) ---- */
+.status-badge[data-status="not-started"] { color: #888; }
+.status-badge[data-status="in-progress"]  { color: #1d6fce; }
+.status-badge[data-status="completed"]    { color: #1e8a45; }
+
+/* ---- Flags / deadline ---- */
+.badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.badge-today    { background: #fff3cd; color: #856404; }
+.badge-week     { background: #cfe2ff; color: #084298; }
+.badge-deadline { background: #f8d7da; color: #842029; }
+
+/* ---- Delete buttons ---- */
+.btn-delete {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 0.8rem;
+  padding: 0.15rem 0.3rem;
+}
+.btn-delete:hover { color: #c00; }
+.btn-danger { background: #c00; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer; }
+
+/* ---- Add-project / add-item inline forms ---- */
+.inline-form { padding: 0.4rem 0.6rem; }
+.inline-form input { width: 100%; padding: 0.3rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; margin-bottom: 0.3rem; }
+.inline-form button { font-size: 0.8rem; padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; background: #fff; margin-right: 0.25rem; }
+
+/* ---- Modal overlay ---- */
+#modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+#modal-message { margin-bottom: 1rem; font-size: 0.95rem; line-height: 1.5; }
+.modal-actions { display: flex; gap: 0.75rem; }
+.modal-actions button { padding: 0.4rem 0.9rem; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; background: #fff; }
+
+/* ---- Utility ---- */
+.hidden { display: none !important; }
+.empty-state { color: #999; font-size: 0.85rem; text-align: center; padding: 1rem; }

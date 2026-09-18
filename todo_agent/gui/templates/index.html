@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>todo-agent</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>todo-agent</h1>
+    <nav class="filters">
+      <button class="filter-btn active" data-view="all">All</button>
+      <button class="filter-btn" data-view="today">Today</button>
+      <button class="filter-btn" data-view="this-week">This Week</button>
+    </nav>
+    <div class="add-lane-area">
+      <button id="show-add-lane">+ Add Lane</button>
+      <form id="add-lane-form" class="hidden">
+        <input id="new-lane-name" type="text" placeholder="Lane name" />
+        <button type="submit">Add</button>
+        <button type="button" id="cancel-add-lane">Cancel</button>
+      </form>
+    </div>
+  </header>
+
+  <main id="board"></main>
+
+  <!-- Confirmation modal -->
+  <div id="modal" class="hidden">
+    <div class="modal-box">
+      <p id="modal-message"></p>
+      <div class="modal-actions">
+        <button id="modal-confirm" class="btn-danger">Confirm</button>
+        <button id="modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
