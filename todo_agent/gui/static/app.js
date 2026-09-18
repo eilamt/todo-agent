@@ -169,12 +169,21 @@ function buildProjectSection(lane, project, visibleItems) {
 }
 
 function buildItemCard(lane, project, item) {
+  const imp = item.importance ?? 50;
   const card = el("div", "item-card");
   card.dataset.status = item.status;
+  card.dataset.importance = imp;
+  if (imp > 80) card.classList.add("item-high-importance");
 
   const titleEl = el("div", "item-title");
   titleEl.textContent = item.title;
   card.appendChild(titleEl);
+
+  if (item.description) {
+    const descEl = el("p", "item-description");
+    descEl.textContent = item.description;
+    card.appendChild(descEl);
+  }
 
   const controls = el("div", "item-controls");
 
@@ -205,6 +214,10 @@ function buildItemCard(lane, project, item) {
     b.textContent = item.deadline;
     controls.appendChild(b);
   }
+
+  const impBadge = el("span", "badge badge-importance");
+  impBadge.textContent = imp;
+  controls.appendChild(impBadge);
 
   // Delete
   const delBtn = el("button", "btn-delete");

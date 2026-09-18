@@ -41,6 +41,7 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             project_name=tool_input["project_name"],
             item_title=tool_input["item_title"],
             lane_name=tool_input.get("lane_name"),
+            description=tool_input.get("description"),
         )
         print(f"Added item '{item['title']}' to project '{tool_input['project_name']}'.")
 
@@ -105,6 +106,27 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
         )
         print(f"Project '{project['name']}' importance set to {project['importance']}.")
+
+    elif tool_name == "set_item_description":
+        item = operations.set_item_description(
+            item_title=tool_input["item_title"],
+            description=tool_input.get("description"),
+            project_name=tool_input.get("project_name"),
+            lane_name=tool_input.get("lane_name"),
+        )
+        if item["description"] is not None:
+            print(f"Description for '{item['title']}' set.")
+        else:
+            print(f"Description for '{item['title']}' cleared.")
+
+    elif tool_name == "set_item_importance":
+        item = operations.set_item_importance(
+            item_title=tool_input["item_title"],
+            importance=tool_input["importance"],
+            project_name=tool_input.get("project_name"),
+            lane_name=tool_input.get("lane_name"),
+        )
+        print(f"Importance for '{item['title']}' set to {item['importance']}.")
 
     # --- Delete operations (with confirmation) ---
     elif tool_name == "delete_lane":

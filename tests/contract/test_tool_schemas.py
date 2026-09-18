@@ -1,9 +1,9 @@
-"""Contract tests — validate all 16 tool definitions are well-formed JSON Schema."""
+"""Contract tests — validate all 18 tool definitions are well-formed JSON Schema."""
 from todo_agent.tools import TOOLS
 
 
 def test_tool_count():
-    assert len(TOOLS) == 16, f"Expected 16 tools, got {len(TOOLS)}"
+    assert len(TOOLS) == 18, f"Expected 18 tools, got {len(TOOLS)}"
 
 
 def test_all_tool_names_present_and_non_empty():
@@ -54,3 +54,16 @@ def test_list_notes_entity_type_enum():
     tool = next(t for t in TOOLS if t["name"] == "list_notes")
     enum = tool["input_schema"]["properties"]["entity_type"]["enum"]
     assert set(enum) == {"project", "item"}
+
+
+def test_set_item_description_required_fields():
+    tool = next(t for t in TOOLS if t["name"] == "set_item_description")
+    assert tool["input_schema"]["required"] == ["item_title", "description"]
+
+
+def test_set_item_importance_required_fields_and_range():
+    tool = next(t for t in TOOLS if t["name"] == "set_item_importance")
+    assert tool["input_schema"]["required"] == ["item_title", "importance"]
+    importance_prop = tool["input_schema"]["properties"]["importance"]
+    assert importance_prop["minimum"] == 0
+    assert importance_prop["maximum"] == 100

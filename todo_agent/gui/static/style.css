@@ -111,9 +111,24 @@ header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
   border-radius: 10px;
   font-weight: 600;
 }
-.badge-today    { background: #fff3cd; color: #856404; }
-.badge-week     { background: #cfe2ff; color: #084298; }
-.badge-deadline { background: #f8d7da; color: #842029; }
+.badge-today       { background: #fff3cd; color: #856404; }
+.badge-week        { background: #cfe2ff; color: #084298; }
+.badge-deadline    { background: #f8d7da; color: #842029; }
+.badge-importance  { background: #805ad5; color: #fff; }
+
+/* ---- Item description ---- */
+.item-description {
+  font-size: 0.78rem;
+  color: #555;
+  margin: 0.15rem 0 0.25rem 0;
+  line-height: 1.4;
+}
+
+/* ---- High-importance item highlight ---- */
+.item-high-importance {
+  border-left: 4px solid #e53e3e;
+  background-color: #fff5f5;
+}
 
 /* ---- Delete buttons ---- */
 .btn-delete {

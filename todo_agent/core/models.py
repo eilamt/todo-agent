@@ -60,6 +60,8 @@ class Item:
     deadline: str | None = None
     push_count: int = 0
     notes: list = field(default_factory=list)
+    description: str | None = None
+    importance: int = 50
 
 
 @dataclass

@@ -209,3 +209,84 @@ class TestNotes:
     def test_list_notes_invalid_entity_type_raises(self):
         with pytest.raises(ValueError, match="entity_type"):
             operations.list_notes("lane", "Work")
+
+
+class TestSetItemDescription:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "P")
+        operations.add_item("P", "Task")
+
+    def test_set_description_stores_value(self):
+        operations.set_item_description("Task", "needs mobile-first approach")
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["description"] == "needs mobile-first approach"
+
+    def test_empty_string_stores_null(self):
+        operations.set_item_description("Task", "   ")
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["description"] is None
+
+    def test_clearing_with_null_stores_null(self):
+        operations.set_item_description("Task", "some text")
+        operations.set_item_description("Task", None)
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["description"] is None
+
+    def test_add_item_with_description_stores_it(self):
+        operations.add_item("P", "Task2", description="initial description")
+        data = store.load_data()
+        item = next(i for i in data["lanes"][0]["projects"][0]["items"] if i["title"] == "Task2")
+        assert item["description"] == "initial description"
+
+    def test_backward_compat_item_without_description_key(self):
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        item.pop("description", None)
+        assert item.get("description") is None
+
+
+class TestSetItemImportance:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "P")
+        operations.add_item("P", "Task")
+
+    def test_set_importance_stores_value(self):
+        operations.set_item_importance("Task", 90)
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["importance"] == 90
+
+    def test_boundary_zero_accepted(self):
+        operations.set_item_importance("Task", 0)
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["importance"] == 0
+
+    def test_boundary_hundred_accepted(self):
+        operations.set_item_importance("Task", 100)
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["importance"] == 100
+
+    def test_below_zero_raises(self):
+        with pytest.raises(ValueError):
+            operations.set_item_importance("Task", -1)
+
+    def test_above_hundred_raises(self):
+        with pytest.raises(ValueError):
+            operations.set_item_importance("Task", 101)
+
+    def test_add_item_without_importance_defaults_to_50(self):
+        item = operations.add_item("P", "Task2")
+        assert item["importance"] == 50
+
+    def test_backward_compat_item_without_importance_key(self):
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        item.pop("importance", None)
+        assert item.get("importance", 50) == 50

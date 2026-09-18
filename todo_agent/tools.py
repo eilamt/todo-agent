@@ -1,4 +1,4 @@
-"""Static list of 16 LLM-callable tool definitions.
+"""Static list of 18 LLM-callable tool definitions.
 
 Passed verbatim as the `tools` parameter to client.messages.create().
 The LLM selects exactly one tool per invocation; all subsequent logic
@@ -67,6 +67,10 @@ TOOLS = [
                         "Name of the lane containing the project. "
                         "Provide when the project name alone is ambiguous."
                     ),
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional free-text description of the item.",
                 },
             },
             "required": ["project_name", "item_title"],
@@ -397,6 +401,60 @@ TOOLS = [
                 },
             },
             "required": ["entity_type", "name"],
+        },
+    },
+    {
+        "name": "set_item_description",
+        "description": "Set or clear the free-text description of an item. Pass null or an empty string to clear it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_title": {
+                    "type": "string",
+                    "description": "Title of the item.",
+                },
+                "description": {
+                    "type": ["string", "null"],
+                    "description": "New description text, or null to clear.",
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project name for disambiguation.",
+                },
+                "lane_name": {
+                    "type": "string",
+                    "description": "Lane name for disambiguation.",
+                },
+            },
+            "required": ["item_title", "description"],
+        },
+    },
+    {
+        "name": "set_item_importance",
+        "description": "Set an item's importance score (0–100). Items with importance > 80 are highlighted in the GUI.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_title": {
+                    "type": "string",
+                    "description": "Title of the item.",
+                },
+                "importance": {
+                    "type": "integer",
+                    "description": "New importance value, 0 (least) to 100 (most important).",
+                    "minimum": 0,
+                    "maximum": 100,
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project name for disambiguation.",
+                },
+                "lane_name": {
+                    "type": "string",
+                    "description": "Lane name for disambiguation.",
+                },
+            },
+            "required": ["item_title", "importance"],
         },
     },
     {

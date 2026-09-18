@@ -178,7 +178,7 @@ def add_project(lane_name: str, project_name: str, importance: int = 50) -> dict
     return new_project
 
 
-def add_item(project_name: str, item_title: str, lane_name: str | None = None) -> dict:
+def add_item(project_name: str, item_title: str, lane_name: str | None = None, description: str | None = None, importance: int = 50) -> dict:
     """Create a new item inside a project."""
     data = load_data()
     lane, project = _find_project(data, project_name, lane_name)
@@ -199,6 +199,8 @@ def add_item(project_name: str, item_title: str, lane_name: str | None = None) -
         "deadline": None,
         "push_count": 0,
         "notes": [],
+        "description": description if description and description.strip() else None,
+        "importance": importance,
     }
     project["items"].append(new_item)
     recalculate_percent_complete(project)
@@ -372,6 +374,42 @@ def delete_item(
         "item_title": item["title"],
         "project_percent_complete": project["percent_complete"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Description / importance update operations
+# ---------------------------------------------------------------------------
+
+def set_item_description(
+    item_title: str,
+    description: str | None,
+    project_name: str | None = None,
+    lane_name: str | None = None,
+) -> dict:
+    """Set or clear an item's free-text description."""
+    data = load_data()
+    lane, project, item = _find_item(data, item_title, project_name, lane_name)
+    # Normalise: empty / whitespace string → None
+    if description is not None and not description.strip():
+        description = None
+    item["description"] = description
+    save_data(data)
+    return item
+
+
+def set_item_importance(
+    item_title: str,
+    importance: int,
+    project_name: str | None = None,
+    lane_name: str | None = None,
+) -> dict:
+    """Set an item's importance score (0–100)."""
+    validate_importance(importance)
+    data = load_data()
+    lane, project, item = _find_item(data, item_title, project_name, lane_name)
+    item["importance"] = importance
+    save_data(data)
+    return item
 
 
 # ---------------------------------------------------------------------------
