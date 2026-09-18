@@ -413,6 +413,55 @@ def set_item_importance(
 
 
 # ---------------------------------------------------------------------------
+# Rename operations
+# ---------------------------------------------------------------------------
+
+def rename_item(
+    item_title: str,
+    new_title: str,
+    project_name: str | None = None,
+    lane_name: str | None = None,
+) -> dict:
+    """Rename an item. new_title must be non-empty and unique within its project."""
+    new_title = new_title.strip() if new_title else ""
+    if not new_title:
+        raise ValueError("Item title must not be empty.")
+    data = load_data()
+    lane, project, item = _find_item(data, item_title, project_name, lane_name)
+    # Case-insensitive uniqueness check within the project (skip self)
+    for other in project["items"]:
+        if other["id"] != item["id"] and other["title"].lower() == new_title.lower():
+            raise ValueError(
+                f"Item '{new_title}' already exists in project '{project['name']}'."
+            )
+    item["title"] = new_title
+    save_data(data)
+    return item
+
+
+def rename_project(
+    project_name: str,
+    new_name: str,
+    lane_name: str | None = None,
+) -> dict:
+    """Rename a project. new_name must be non-empty and unique within its lane."""
+    new_name = new_name.strip() if new_name else ""
+    if not new_name:
+        raise ValueError("Project name must not be empty.")
+    data = load_data()
+    lane, project = _find_project(data, project_name, lane_name)
+    # Case-insensitive uniqueness check within the lane (skip self)
+    for other in lane["projects"]:
+        if other["id"] != project["id"] and other["name"].lower() == new_name.lower():
+            raise ValueError(
+                f"Project '{new_name}' already exists in lane '{lane['name']}'."
+            )
+    project["name"] = new_name
+    save_data(data)
+    return project
+
+
+# ---------------------------------------------------------------------------
 # Note operations
 # ---------------------------------------------------------------------------
 

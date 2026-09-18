@@ -22,8 +22,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.view === currentView);
     btn.addEventListener("click", () => {
+      if (!btn.dataset.view) return; // skip non-view buttons (collapse-all)
       currentView = btn.dataset.view;
-      document.querySelectorAll(".filter-btn").forEach(b =>
+      document.querySelectorAll(".filter-btn[data-view]").forEach(b =>
         b.classList.toggle("active", b === btn)
       );
       if (storeData) render(storeData, currentView);
@@ -48,6 +49,21 @@ document.addEventListener("DOMContentLoaded", () => {
     await poll();
   });
 
+  // Global collapse/expand
+  const collapseBtn = document.getElementById("collapse-all-btn");
+  if (collapseBtn) {
+    collapseBtn.addEventListener("click", () => {
+      const bodies = document.querySelectorAll(".card-body");
+      const anyVisible = [...bodies].some(b => !b.classList.contains("hidden"));
+      bodies.forEach(b => b.classList.toggle("hidden", anyVisible));
+      // Update all collapse toggles
+      document.querySelectorAll(".collapse-toggle").forEach(t => {
+        t.textContent = anyVisible ? "▶" : "▼";
+      });
+      collapseBtn.textContent = anyVisible ? "Expand all" : "Collapse all";
+    });
+  }
+
   poll();
   setInterval(poll, 5000);
 });
@@ -64,6 +80,9 @@ async function poll() {
     lastModified = res.headers.get("Last-Modified");
     storeData = await res.json();
     render(storeData, currentView);
+    // Reset collapse button label after re-render (cards default to expanded)
+    const collapseBtn = document.getElementById("collapse-all-btn");
+    if (collapseBtn) collapseBtn.textContent = "Collapse all";
   } catch (_) { /* ignore network errors */ }
 }
 
@@ -118,8 +137,20 @@ function buildProjectSection(lane, project, visibleItems) {
   // Header (clickable to collapse)
   const header = el("div", "project-header");
   header.title = "Click to expand/collapse";
+
+  // Project title — click to edit inline
   const titleEl = el("span", "project-title");
   titleEl.textContent = project.name;
+  makeInlineEdit(
+    titleEl,
+    "input",
+    project.name,
+    v => v.trim().length > 0,
+    async v => {
+      const r = await apiPatch(`/api/projects/${project.id}`, { name: v.trim() });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+    }
+  );
   header.appendChild(titleEl);
 
   const statusSel = buildStatusSelect(
@@ -132,11 +163,26 @@ function buildProjectSection(lane, project, visibleItems) {
   );
   header.appendChild(statusSel);
 
+  // Meta: percent + importance (importance is editable)
   const meta = el("span", "project-meta");
   const pct = project.percent_complete !== null && project.percent_complete !== undefined
     ? `${project.percent_complete}%`
     : "—";
-  meta.textContent = `  ${pct}  ·  imp ${project.importance}`;
+  meta.appendChild(document.createTextNode(`  ${pct}  ·  imp `));
+  const impSpan = el("span", "project-importance-val");
+  impSpan.textContent = project.importance;
+  makeInlineEdit(
+    impSpan,
+    "input",
+    String(project.importance),
+    v => Number.isInteger(+v) && +v >= 0 && +v <= 100,
+    async v => {
+      const r = await apiPatch(`/api/projects/${project.id}`, { importance: +v });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+    },
+    "number"
+  );
+  meta.appendChild(impSpan);
   header.appendChild(meta);
 
   const delBtn = el("button", "btn-delete");
@@ -160,7 +206,7 @@ function buildProjectSection(lane, project, visibleItems) {
   // Collapse toggle
   let collapsed = false;
   header.addEventListener("click", e => {
-    if (e.target.tagName === "SELECT" || e.target.tagName === "BUTTON") return;
+    if (e.target.tagName === "SELECT" || e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
     collapsed = !collapsed;
     body.classList.toggle("hidden", collapsed);
   });
@@ -175,16 +221,95 @@ function buildItemCard(lane, project, item) {
   card.dataset.importance = imp;
   if (imp > 80) card.classList.add("item-high-importance");
 
-  const titleEl = el("div", "item-title");
-  titleEl.textContent = item.title;
-  card.appendChild(titleEl);
+  // Title row: title + collapse toggle + delete
+  const titleRow = el("div", "item-title-row");
 
+  const titleSpan = el("span", "item-title-text");
+  titleSpan.textContent = item.title;
+  makeInlineEdit(
+    titleSpan,
+    "input",
+    item.title,
+    v => v.trim().length > 0,
+    async v => {
+      const r = await apiPatch(`/api/items/${item.id}`, { title: v.trim() });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+    }
+  );
+  titleRow.appendChild(titleSpan);
+
+  // Collapse toggle
+  const collapseToggle = el("button", "collapse-toggle");
+  collapseToggle.textContent = "▼";
+  collapseToggle.title = "Collapse/expand";
+  titleRow.appendChild(collapseToggle);
+
+  // Delete button stays in title row so it's always visible
+  const delBtn = el("button", "btn-delete");
+  delBtn.textContent = "✕";
+  delBtn.title = "Delete item";
+  delBtn.addEventListener("click", () => confirmDeleteItem(item));
+  titleRow.appendChild(delBtn);
+
+  card.appendChild(titleRow);
+
+  // Card body — everything below the title row, collapsible
+  const cardBody = el("div", "card-body");
+
+  // Description
   if (item.description) {
     const descEl = el("p", "item-description");
     descEl.textContent = item.description;
-    card.appendChild(descEl);
+    makeInlineEdit(
+      descEl,
+      "textarea",
+      item.description,
+      () => true,
+      async v => {
+        const r = await apiPatch(`/api/items/${item.id}`, { description: v.trim() || null });
+        if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+      }
+    );
+    const clearDescBtn = el("button", "btn-clear-desc");
+    clearDescBtn.textContent = "✕";
+    clearDescBtn.title = "Clear description";
+    clearDescBtn.addEventListener("click", async () => {
+      await apiPatch(`/api/items/${item.id}`, { description: null });
+      await poll();
+    });
+    const descWrap = el("div", "desc-wrap");
+    descWrap.appendChild(descEl);
+    descWrap.appendChild(clearDescBtn);
+    cardBody.appendChild(descWrap);
+  } else {
+    const addDescLink = el("span", "add-desc-link");
+    addDescLink.textContent = "+ add description";
+    addDescLink.addEventListener("click", () => {
+      const ta = document.createElement("textarea");
+      ta.className = "inline-edit-input";
+      ta.rows = 2;
+      ta.placeholder = "Add description…";
+      addDescLink.replaceWith(ta);
+      ta.focus();
+      const save = async () => {
+        const val = ta.value.trim();
+        if (val) {
+          await apiPatch(`/api/items/${item.id}`, { description: val });
+          await poll();
+        } else {
+          ta.replaceWith(addDescLink);
+        }
+      };
+      ta.addEventListener("blur", save);
+      ta.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); }
+        if (e.key === "Escape") ta.replaceWith(addDescLink);
+      });
+    });
+    cardBody.appendChild(addDescLink);
   }
 
+  // Controls row
   const controls = el("div", "item-controls");
 
   // Status select
@@ -198,35 +323,83 @@ function buildItemCard(lane, project, item) {
   );
   controls.appendChild(statusSel);
 
-  // Flags
-  if (item.today) {
-    const b = el("span", "badge badge-today");
-    b.textContent = "today";
-    controls.appendChild(b);
-  }
-  if (item.this_week) {
-    const b = el("span", "badge badge-week");
-    b.textContent = "this-week";
-    controls.appendChild(b);
-  }
-  if (item.deadline) {
-    const b = el("span", "badge badge-deadline");
-    b.textContent = item.deadline;
-    controls.appendChild(b);
-  }
+  // Today checkbox
+  const todayLabel = el("label", "flag-label badge badge-today");
+  const todayCb = el("input");
+  todayCb.type = "checkbox";
+  todayCb.className = "flag-cb";
+  todayCb.checked = !!item.today;
+  todayCb.addEventListener("change", async () => {
+    await apiPatch(`/api/items/${item.id}`, { today: todayCb.checked });
+    await poll();
+  });
+  todayLabel.appendChild(todayCb);
+  todayLabel.appendChild(document.createTextNode(" today"));
+  controls.appendChild(todayLabel);
 
+  // This-week checkbox
+  const weekLabel = el("label", "flag-label badge badge-week");
+  const weekCb = el("input");
+  weekCb.type = "checkbox";
+  weekCb.className = "flag-cb";
+  weekCb.checked = !!item.this_week;
+  weekCb.addEventListener("change", async () => {
+    await apiPatch(`/api/items/${item.id}`, { this_week: weekCb.checked });
+    await poll();
+  });
+  weekLabel.appendChild(weekCb);
+  weekLabel.appendChild(document.createTextNode(" this-week"));
+  controls.appendChild(weekLabel);
+
+  // Deadline date input + clear
+  const deadlineWrap = el("span", "deadline-wrap");
+  const deadlineInput = el("input");
+  deadlineInput.type = "date";
+  deadlineInput.className = "deadline-input";
+  deadlineInput.value = item.deadline || "";
+  deadlineInput.addEventListener("change", async () => {
+    await apiPatch(`/api/items/${item.id}`, { deadline: deadlineInput.value || null });
+    await poll();
+  });
+  deadlineWrap.appendChild(deadlineInput);
+  if (item.deadline) {
+    const clrDeadline = el("button", "btn-clear-deadline");
+    clrDeadline.textContent = "✕";
+    clrDeadline.title = "Clear deadline";
+    clrDeadline.addEventListener("click", async () => {
+      await apiPatch(`/api/items/${item.id}`, { deadline: null });
+      await poll();
+    });
+    deadlineWrap.appendChild(clrDeadline);
+  }
+  controls.appendChild(deadlineWrap);
+
+  // Importance badge — click to edit
   const impBadge = el("span", "badge badge-importance");
   impBadge.textContent = imp;
+  makeInlineEdit(
+    impBadge,
+    "input",
+    String(imp),
+    v => Number.isInteger(+v) && +v >= 0 && +v <= 100,
+    async v => {
+      const r = await apiPatch(`/api/items/${item.id}`, { importance: +v });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+    },
+    "number"
+  );
   controls.appendChild(impBadge);
 
-  // Delete
-  const delBtn = el("button", "btn-delete");
-  delBtn.textContent = "✕";
-  delBtn.title = "Delete item";
-  delBtn.addEventListener("click", () => confirmDeleteItem(item));
-  controls.appendChild(delBtn);
+  cardBody.appendChild(controls);
+  card.appendChild(cardBody);
 
-  card.appendChild(controls);
+  // Wire collapse toggle
+  collapseToggle.addEventListener("click", e => {
+    e.stopPropagation();
+    const hidden = cardBody.classList.toggle("hidden");
+    collapseToggle.textContent = hidden ? "▶" : "▼";
+  });
+
   return card;
 }
 
@@ -268,6 +441,59 @@ function buildAddItemForm(lane, project) {
   wrap.appendChild(input);
   wrap.appendChild(addBtn);
   return wrap;
+}
+
+// ---- Inline edit factory --------------------------------------------------
+
+/**
+ * makeInlineEdit — attach click-to-edit behaviour to a display element.
+ *
+ * @param {HTMLElement} displayEl  Element showing the current value.
+ * @param {string}      inputTag   "input" or "textarea".
+ * @param {string}      currentVal Initial value for the input.
+ * @param {Function}    validate   (string) => boolean — client-side guard.
+ * @param {Function}    onSave     async (string) => void — throws on failure.
+ * @param {string}      inputType  For <input>, the type attribute (default "text").
+ */
+function makeInlineEdit(displayEl, inputTag, currentVal, validate, onSave, inputType = "text") {
+  displayEl.classList.add("editable");
+  displayEl.style.cursor = "pointer";
+
+  displayEl.addEventListener("click", e => {
+    e.stopPropagation();
+    const input = document.createElement(inputTag);
+    input.className = "inline-edit-input";
+    if (inputTag === "input") {
+      input.type = inputType;
+      if (inputType === "number") { input.min = "0"; input.max = "100"; }
+    }
+    input.value = currentVal;
+
+    const restore = () => {
+      if (input.parentNode) input.replaceWith(displayEl);
+    };
+
+    const commit = async () => {
+      const val = input.value;
+      if (!validate(val)) { restore(); return; }
+      try {
+        await onSave(val);
+        await poll();
+      } catch (_) {
+        restore();
+      }
+    };
+
+    displayEl.replaceWith(input);
+    input.focus();
+    if (inputTag === "input") input.select();
+
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); input.removeEventListener("blur", commit); commit(); }
+      if (e.key === "Escape") { input.removeEventListener("blur", commit); restore(); }
+    });
+  });
 }
 
 // ---- Status select --------------------------------------------------------

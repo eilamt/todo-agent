@@ -121,22 +121,32 @@ def update_project(project_id: str):
         return jsonify({"error": "Project not found"}), 404
 
     body = request.get_json(force=True) or {}
+    current_name = project["name"]
     try:
+        # Process name first — subsequent handlers use the updated name
+        if "name" in body:
+            operations.rename_project(
+                project_name=current_name,
+                new_name=body["name"],
+                lane_name=lane["name"],
+            )
+            current_name = body["name"].strip()
         if "status" in body:
             operations.set_project_status(
-                project_name=project["name"],
+                project_name=current_name,
                 status=body["status"],
                 start_date=body.get("start_date"),
                 lane_name=lane["name"],
             )
         if "importance" in body:
             operations.set_importance(
-                project_name=project["name"],
+                project_name=current_name,
                 importance=body["importance"],
                 lane_name=lane["name"],
             )
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+        status_code = 409 if "already exists" in str(exc) else 400
+        return jsonify({"error": str(exc)}), status_code
 
     # Return the fresh project state
     data = load_data()
@@ -191,37 +201,62 @@ def update_item(item_id: str):
         return jsonify({"error": "Item not found"}), 404
 
     body = request.get_json(force=True) or {}
+    current_title = item["title"]
     try:
+        # Process title first — subsequent handlers use the updated title
+        if "title" in body:
+            operations.rename_item(
+                item_title=current_title,
+                new_title=body["title"],
+                project_name=project["name"],
+                lane_name=lane["name"],
+            )
+            current_title = body["title"].strip()
         if "status" in body:
             operations.set_item_status(
-                item_title=item["title"],
+                item_title=current_title,
                 status=body["status"],
                 project_name=project["name"],
                 lane_name=lane["name"],
             )
         if "today" in body:
             operations.set_today(
-                item_title=item["title"],
+                item_title=current_title,
                 value=body["today"],
                 project_name=project["name"],
                 lane_name=lane["name"],
             )
         if "this_week" in body:
             operations.set_this_week(
-                item_title=item["title"],
+                item_title=current_title,
                 value=body["this_week"],
                 project_name=project["name"],
                 lane_name=lane["name"],
             )
         if "deadline" in body:
             operations.set_deadline(
-                item_title=item["title"],
+                item_title=current_title,
                 deadline=body["deadline"],
                 project_name=project["name"],
                 lane_name=lane["name"],
             )
+        if "description" in body:
+            operations.set_item_description(
+                item_title=current_title,
+                description=body.get("description"),
+                project_name=project["name"],
+                lane_name=lane["name"],
+            )
+        if "importance" in body:
+            operations.set_item_importance(
+                item_title=current_title,
+                importance=body["importance"],
+                project_name=project["name"],
+                lane_name=lane["name"],
+            )
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+        status_code = 409 if "already exists" in str(exc) else 400
+        return jsonify({"error": str(exc)}), status_code
 
     # Return fresh state including updated percent_complete
     data = load_data()

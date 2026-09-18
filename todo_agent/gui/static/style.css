@@ -130,6 +130,67 @@ header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
   background-color: #fff5f5;
 }
 
+/* ---- Inline edit inputs ---- */
+.editable { cursor: pointer; }
+.editable:hover { text-decoration: underline dotted #aaa; }
+.inline-edit-input {
+  border: 2px solid #4299e1;
+  border-radius: 3px;
+  outline: none;
+  padding: 0.1rem 0.3rem;
+  background: #fff;
+  font-size: inherit;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+textarea.inline-edit-input { resize: vertical; min-height: 3em; }
+
+/* ---- Description add link ---- */
+.add-desc-link { font-size: 0.75rem; color: #aaa; cursor: pointer; display: block; margin: 0.1rem 0 0.2rem 0; }
+.add-desc-link:hover { color: #555; }
+.desc-wrap { display: flex; align-items: flex-start; gap: 0.3rem; }
+.desc-wrap .item-description { flex: 1; }
+
+/* ---- Clear / utility buttons ---- */
+.btn-clear-desc, .btn-clear-deadline {
+  background: none; border: none; cursor: pointer; color: #aaa; font-size: 0.75rem; padding: 0 0.2rem; flex-shrink: 0;
+}
+.btn-clear-desc:hover, .btn-clear-deadline:hover { color: #c00; }
+
+/* ---- Deadline input ---- */
+.deadline-wrap { display: inline-flex; align-items: center; gap: 0.2rem; }
+.deadline-input { font-size: 0.78rem; border: 1px solid #ccc; border-radius: 3px; padding: 0.1rem 0.2rem; }
+
+/* ---- Item title row ---- */
+.item-title-row { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.2rem; }
+.item-title-text { flex: 1; font-size: 0.88rem; font-weight: 500; }
+
+/* ---- Collapse toggle ---- */
+.collapse-toggle {
+  background: none; border: none; cursor: pointer; font-size: 0.75rem; color: #999; padding: 0 0.2rem; flex-shrink: 0;
+}
+.collapse-toggle:hover { color: #333; }
+
+/* ---- Bold project names ---- */
+.project-title { font-weight: 700; color: #111; }
+
+/* ---- Project importance editable value ---- */
+.project-importance-val { cursor: pointer; }
+.project-importance-val:hover { text-decoration: underline dotted #aaa; }
+
+/* ---- Flag checkboxes styled as badges ---- */
+.flag-label { display: inline-flex; align-items: center; gap: 0.2rem; cursor: pointer; }
+.flag-cb { cursor: pointer; width: 0.85em; height: 0.85em; }
+
+/* ---- Saved flash animation ---- */
+@keyframes saved-flash {
+  0%   { border-color: #4299e1; }
+  50%  { border-color: #48bb78; }
+  100% { border-color: transparent; }
+}
+.saved-flash { animation: saved-flash 1.5s ease-out; }
+
 /* ---- Delete buttons ---- */
 .btn-delete {
   border: none;

@@ -290,3 +290,88 @@ class TestSetItemImportance:
         item = data["lanes"][0]["projects"][0]["items"][0]
         item.pop("importance", None)
         assert item.get("importance", 50) == 50
+
+
+class TestRenameItem:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "P")
+        operations.add_item("P", "Old Title")
+
+    def test_rename_changes_title(self):
+        result = operations.rename_item("Old Title", "New Title")
+        assert result["title"] == "New Title"
+        data = store.load_data()
+        item = data["lanes"][0]["projects"][0]["items"][0]
+        assert item["title"] == "New Title"
+
+    def test_rename_empty_title_raises(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            operations.rename_item("Old Title", "")
+
+    def test_rename_whitespace_only_raises(self):
+        with pytest.raises(ValueError):
+            operations.rename_item("Old Title", "   ")
+
+    def test_rename_duplicate_raises(self):
+        operations.add_item("P", "Other Item")
+        with pytest.raises(ValueError, match="already exists"):
+            operations.rename_item("Old Title", "Other Item")
+
+    def test_rename_case_insensitive_duplicate_raises(self):
+        operations.add_item("P", "Other Item")
+        with pytest.raises(ValueError, match="already exists"):
+            operations.rename_item("Old Title", "other item")
+
+    def test_rename_to_same_name_is_ok(self):
+        result = operations.rename_item("Old Title", "Old Title")
+        assert result["title"] == "Old Title"
+
+    def test_rename_preserves_other_fields(self):
+        operations.set_item_description("Old Title", "some desc")
+        result = operations.rename_item("Old Title", "New Title")
+        assert result["description"] == "some desc"
+
+
+class TestRenameProject:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "Old Project")
+
+    def test_rename_changes_name(self):
+        result = operations.rename_project("Old Project", "New Project")
+        assert result["name"] == "New Project"
+        data = store.load_data()
+        project = data["lanes"][0]["projects"][0]
+        assert project["name"] == "New Project"
+
+    def test_rename_empty_name_raises(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            operations.rename_project("Old Project", "")
+
+    def test_rename_whitespace_only_raises(self):
+        with pytest.raises(ValueError):
+            operations.rename_project("Old Project", "   ")
+
+    def test_rename_duplicate_raises(self):
+        operations.add_project("Work", "Other Project")
+        with pytest.raises(ValueError, match="already exists"):
+            operations.rename_project("Old Project", "Other Project")
+
+    def test_rename_case_insensitive_duplicate_raises(self):
+        operations.add_project("Work", "Other Project")
+        with pytest.raises(ValueError, match="already exists"):
+            operations.rename_project("Old Project", "other project")
+
+    def test_rename_to_same_name_is_ok(self):
+        result = operations.rename_project("Old Project", "Old Project")
+        assert result["name"] == "Old Project"
+
+    def test_rename_preserves_items(self):
+        operations.add_item("Old Project", "Task A")
+        operations.rename_project("Old Project", "New Project")
+        data = store.load_data()
+        project = data["lanes"][0]["projects"][0]
+        assert project["name"] == "New Project"
+        assert len(project["items"]) == 1
+        assert project["items"][0]["title"] == "Task A"
