@@ -54,7 +54,10 @@ def resolve_intent(user_text: str, data: dict, config: dict) -> tuple[str, dict]
         "Current to-do state:\n"
         f"{_build_data_summary(data)}\n\n"
         "Select exactly one tool to perform the user's request. "
-        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous."
+        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous. "
+        "For requests to display, list, show, or view data (e.g. 'list projects', 'show me all items'), "
+        "use 'request_clarification' to tell the user to run 'todo visualize' instead — "
+        "do NOT use 'list_notes' or any other tool to satisfy display requests."
     )
 
     message = client.messages.create(
