@@ -375,3 +375,178 @@ class TestRenameProject:
         assert project["name"] == "New Project"
         assert len(project["items"]) == 1
         assert project["items"][0]["title"] == "Task A"
+
+
+class TestListLanes:
+    def test_empty_board_returns_empty_list(self):
+        result = operations.list_lanes()
+        assert result == []
+
+    def test_returns_lane_with_project_count(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "Site")
+        operations.add_project("Work", "API")
+        result = operations.list_lanes()
+        assert len(result) == 1
+        assert result[0]["name"] == "Work"
+        assert result[0]["project_count"] == 2
+
+    def test_multiple_lanes(self):
+        operations.add_lane("Work")
+        operations.add_lane("Personal")
+        result = operations.list_lanes()
+        names = [r["name"] for r in result]
+        assert "Work" in names
+        assert "Personal" in names
+
+    def test_result_has_id(self):
+        operations.add_lane("Work")
+        result = operations.list_lanes()
+        assert "id" in result[0]
+
+
+class TestListProjects:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "Alpha")
+        operations.add_project("Work", "Beta")
+        operations.add_lane("Personal")
+        operations.add_project("Personal", "Gamma")
+
+    def test_returns_all_projects_when_no_filter(self):
+        result = operations.list_projects()
+        names = [r["name"] for r in result]
+        assert set(names) == {"Alpha", "Beta", "Gamma"}
+
+    def test_filters_by_lane_name(self):
+        result = operations.list_projects(lane_name="Work")
+        names = [r["name"] for r in result]
+        assert set(names) == {"Alpha", "Beta"}
+        assert all(r["lane"] == "Work" for r in result)
+
+    def test_filter_case_insensitive(self):
+        result = operations.list_projects(lane_name="work")
+        assert len(result) == 2
+
+    def test_nonexistent_lane_returns_empty(self):
+        result = operations.list_projects(lane_name="Nonexistent")
+        assert result == []
+
+    def test_result_includes_required_fields(self):
+        result = operations.list_projects(lane_name="Work")
+        p = result[0]
+        assert "id" in p
+        assert "name" in p
+        assert "lane" in p
+        assert "importance" in p
+        assert "status" in p
+        assert "percent_complete" in p
+        assert "item_count" in p
+
+    def test_item_count_reflects_items(self):
+        operations.add_item("Alpha", "Task 1")
+        operations.add_item("Alpha", "Task 2")
+        result = operations.list_projects(lane_name="Work")
+        alpha = next(r for r in result if r["name"] == "Alpha")
+        assert alpha["item_count"] == 2
+
+
+class TestListItems:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "Site")
+        operations.add_item("Site", "Homepage")
+        operations.add_item("Site", "About")
+        operations.add_project("Work", "API")
+        operations.add_item("API", "Auth")
+        operations.add_lane("Personal")
+        operations.add_project("Personal", "Blog")
+        operations.add_item("Blog", "Draft post")
+
+    def test_returns_all_items_when_no_filter(self):
+        result = operations.list_items()
+        titles = [r["title"] for r in result]
+        assert set(titles) == {"Homepage", "About", "Auth", "Draft post"}
+
+    def test_filters_by_project_name(self):
+        result = operations.list_items(project_name="Site")
+        titles = [r["title"] for r in result]
+        assert set(titles) == {"Homepage", "About"}
+
+    def test_filters_by_lane_name(self):
+        result = operations.list_items(lane_name="Work")
+        titles = [r["title"] for r in result]
+        assert set(titles) == {"Homepage", "About", "Auth"}
+
+    def test_filters_by_both(self):
+        result = operations.list_items(project_name="API", lane_name="Work")
+        assert len(result) == 1
+        assert result[0]["title"] == "Auth"
+
+    def test_project_filter_case_insensitive(self):
+        result = operations.list_items(project_name="site")
+        assert len(result) == 2
+
+    def test_nonexistent_project_returns_empty(self):
+        result = operations.list_items(project_name="Nope")
+        assert result == []
+
+    def test_result_includes_required_fields(self):
+        result = operations.list_items(project_name="Site")
+        item = result[0]
+        assert "id" in item
+        assert "title" in item
+        assert "project" in item
+        assert "lane" in item
+        assert "status" in item
+        assert "today" in item
+        assert "this_week" in item
+        assert "deadline" in item
+        assert "importance" in item
+        assert "description" in item
+
+    def test_today_flag_reflected(self):
+        operations.set_today("Homepage", True, project_name="Site")
+        result = operations.list_items(project_name="Site")
+        home = next(r for r in result if r["title"] == "Homepage")
+        assert home["today"] is True
+
+
+class TestGetItem:
+    def setup_method(self):
+        operations.add_lane("Work")
+        operations.add_project("Work", "Site")
+        operations.add_item("Site", "Homepage")
+
+    def test_returns_correct_item(self):
+        result = operations.get_item("Homepage")
+        assert result["title"] == "Homepage"
+        assert result["project"] == "Site"
+        assert result["lane"] == "Work"
+
+    def test_result_includes_notes_key(self):
+        result = operations.get_item("Homepage")
+        assert "notes" in result
+        assert isinstance(result["notes"], list)
+
+    def test_not_found_raises_value_error(self):
+        with pytest.raises(ValueError):
+            operations.get_item("Nonexistent")
+
+    def test_ambiguous_title_raises(self):
+        operations.add_project("Work", "API")
+        operations.add_item("API", "Homepage")
+        with pytest.raises(AmbiguousMatchError):
+            operations.get_item("Homepage")
+
+    def test_disambiguation_by_project_name(self):
+        operations.add_project("Work", "API")
+        operations.add_item("API", "Homepage")
+        result = operations.get_item("Homepage", project_name="Site")
+        assert result["project"] == "Site"
+
+    def test_all_fields_present(self):
+        result = operations.get_item("Homepage")
+        for field in ("id", "title", "project", "lane", "status", "today",
+                      "this_week", "deadline", "importance", "description", "notes"):
+            assert field in result

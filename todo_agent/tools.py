@@ -1,4 +1,4 @@
-"""Static list of 18 LLM-callable tool definitions.
+"""Static list of 22 LLM-callable tool definitions.
 
 Passed verbatim as the `tools` parameter to client.messages.create().
 The LLM selects exactly one tool per invocation; all subsequent logic
@@ -455,6 +455,85 @@ TOOLS = [
                 },
             },
             "required": ["item_title", "importance"],
+        },
+    },
+    {
+        "name": "list_lanes",
+        "description": (
+            "Return all lanes with their id, name, and number of projects. "
+            "Use this to answer questions like 'what lanes do I have?' or 'show me all categories'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "list_projects",
+        "description": (
+            "Return all projects, optionally filtered by lane_name. "
+            "Each result includes id, name, lane, importance, status, percent_complete, and item_count. "
+            "Use this to answer questions like 'list all projects in Work lane' or 'show me in-progress projects'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "lane_name": {
+                    "type": "string",
+                    "description": "Filter to only projects in this lane. Omit to return projects from all lanes.",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "list_items",
+        "description": (
+            "Return all items, optionally filtered by project_name and/or lane_name. "
+            "Each result includes id, title, project, lane, status, today, this_week, deadline, importance, and description. "
+            "Use this to answer questions like 'what items are due today?', 'list all tasks in Website', or 'show me everything in Work lane'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_name": {
+                    "type": "string",
+                    "description": "Filter to only items in this project. Omit to return items from all projects.",
+                },
+                "lane_name": {
+                    "type": "string",
+                    "description": "Filter to only items in projects within this lane. Can be combined with project_name.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_item",
+        "description": (
+            "Return full details for a single item by title, including notes. "
+            "Use when the user asks about a specific task by name. "
+            "If the title matches multiple items, returns an error listing all matches — "
+            "call again with project_name or lane_name to disambiguate."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_title": {
+                    "type": "string",
+                    "description": "Title of the item to look up.",
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project name to disambiguate when multiple items share the same title.",
+                },
+                "lane_name": {
+                    "type": "string",
+                    "description": "Lane name for further disambiguation.",
+                },
+            },
+            "required": ["item_title"],
         },
     },
     {

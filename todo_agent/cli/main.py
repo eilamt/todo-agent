@@ -2,8 +2,9 @@
 
 Handles two paths:
   - Reserved subcommands: `todo visualize [scope]`
-  - Free text: `todo "add a lane called Work"` → LLM intent resolution → operation dispatch
+  - Free text: `todo "add a lane called Work"` → LLM agent loop → operations dispatch
 """
+import json
 import sys
 
 from todo_agent.config import load_config
@@ -20,13 +21,15 @@ def _confirm(prompt: str) -> bool:
     return answer == "y"
 
 
-def _dispatch(tool_name: str, tool_input: dict) -> None:
-    """Route a resolved tool call to the appropriate operation and print a result."""
+def _dispatch(tool_name: str, tool_input: dict) -> str:
+    """Route a resolved tool call to the appropriate operation, print a result, and return it."""
 
     # --- Add operations ---
     if tool_name == "add_lane":
         lane = operations.add_lane(tool_input["name"])
-        print(f"Added lane '{lane['name']}'.")
+        msg = f"Added lane '{lane['name']}'."
+        print(msg)
+        return msg
 
     elif tool_name == "add_project":
         project = operations.add_project(
@@ -34,7 +37,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             project_name=tool_input["project_name"],
             importance=tool_input.get("importance", 50),
         )
-        print(f"Added project '{project['name']}' to lane '{tool_input['lane_name']}'.")
+        msg = f"Added project '{project['name']}' to lane '{tool_input['lane_name']}'."
+        print(msg)
+        return msg
 
     elif tool_name == "add_item":
         item = operations.add_item(
@@ -43,7 +48,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
             description=tool_input.get("description"),
         )
-        print(f"Added item '{item['title']}' to project '{tool_input['project_name']}'.")
+        msg = f"Added item '{item['title']}' to project '{tool_input['project_name']}'."
+        print(msg)
+        return msg
 
     # --- Status / flag / field updates ---
     elif tool_name == "set_item_status":
@@ -53,7 +60,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             project_name=tool_input.get("project_name"),
             lane_name=tool_input.get("lane_name"),
         )
-        print(f"Updated '{item['title']}' status to '{item['status']}'.")
+        msg = f"Updated '{item['title']}' status to '{item['status']}'."
+        print(msg)
+        return msg
 
     elif tool_name == "set_today":
         item = operations.set_today(
@@ -63,7 +72,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
         )
         state = "marked as today" if item["today"] else "removed from today"
-        print(f"'{item['title']}' {state}.")
+        msg = f"'{item['title']}' {state}."
+        print(msg)
+        return msg
 
     elif tool_name == "set_this_week":
         item = operations.set_this_week(
@@ -73,7 +84,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
         )
         state = "marked as this-week" if item["this_week"] else "removed from this-week"
-        print(f"'{item['title']}' {state}.")
+        msg = f"'{item['title']}' {state}."
+        print(msg)
+        return msg
 
     elif tool_name == "set_deadline":
         item = operations.set_deadline(
@@ -83,9 +96,11 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
         )
         if item["deadline"]:
-            print(f"Deadline for '{item['title']}' set to {item['deadline']}.")
+            msg = f"Deadline for '{item['title']}' set to {item['deadline']}."
         else:
-            print(f"Deadline for '{item['title']}' cleared.")
+            msg = f"Deadline for '{item['title']}' cleared."
+        print(msg)
+        return msg
 
     elif tool_name == "set_project_status":
         project = operations.set_project_status(
@@ -98,6 +113,7 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
         if project.get("start_date"):
             msg += f" Start date: {project['start_date']}."
         print(msg)
+        return msg
 
     elif tool_name == "set_importance":
         project = operations.set_importance(
@@ -105,7 +121,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             importance=tool_input["importance"],
             lane_name=tool_input.get("lane_name"),
         )
-        print(f"Project '{project['name']}' importance set to {project['importance']}.")
+        msg = f"Project '{project['name']}' importance set to {project['importance']}."
+        print(msg)
+        return msg
 
     elif tool_name == "set_item_description":
         item = operations.set_item_description(
@@ -115,9 +133,11 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             lane_name=tool_input.get("lane_name"),
         )
         if item["description"] is not None:
-            print(f"Description for '{item['title']}' set.")
+            msg = f"Description for '{item['title']}' set."
         else:
-            print(f"Description for '{item['title']}' cleared.")
+            msg = f"Description for '{item['title']}' cleared."
+        print(msg)
+        return msg
 
     elif tool_name == "set_item_importance":
         item = operations.set_item_importance(
@@ -126,7 +146,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             project_name=tool_input.get("project_name"),
             lane_name=tool_input.get("lane_name"),
         )
-        print(f"Importance for '{item['title']}' set to {item['importance']}.")
+        msg = f"Importance for '{item['title']}' set to {item['importance']}."
+        print(msg)
+        return msg
 
     # --- Delete operations (with confirmation) ---
     elif tool_name == "delete_lane":
@@ -143,12 +165,14 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
         )
         if not confirmed:
             print("Deletion cancelled.")
-            return
+            return "Deletion cancelled by user."
         result = operations.delete_lane(tool_input["lane_name"])
-        print(
+        msg = (
             f"Deleted lane '{result['lane_name']}' "
             f"({result['projects_deleted']} projects, {result['items_deleted']} items removed)."
         )
+        print(msg)
+        return msg
 
     elif tool_name == "delete_project":
         data = load_data()
@@ -165,15 +189,17 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
         )
         if not confirmed:
             print("Deletion cancelled.")
-            return
+            return "Deletion cancelled by user."
         result = operations.delete_project(
             project_name=tool_input["project_name"],
             lane_name=tool_input.get("lane_name"),
         )
-        print(
+        msg = (
             f"Deleted project '{result['project_name']}' "
             f"({result['items_deleted']} items removed)."
         )
+        print(msg)
+        return msg
 
     elif tool_name == "delete_item":
         data = load_data()
@@ -189,13 +215,15 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
         )
         if not confirmed:
             print("Deletion cancelled.")
-            return
+            return "Deletion cancelled by user."
         result = operations.delete_item(
             item_title=tool_input["item_title"],
             project_name=tool_input.get("project_name"),
             lane_name=tool_input.get("lane_name"),
         )
-        print(f"Deleted item '{result['item_title']}'.")
+        msg = f"Deleted item '{result['item_title']}'."
+        print(msg)
+        return msg
 
     # --- Note operations ---
     elif tool_name == "add_project_note":
@@ -204,10 +232,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             text=tool_input["text"],
             lane_name=tool_input.get("lane_name"),
         )
-        print(
-            f"Note added to project '{tool_input['project_name']}' "
-            f"at {note['created_at']}."
-        )
+        msg = f"Note added to project '{tool_input['project_name']}' at {note['created_at']}."
+        print(msg)
+        return msg
 
     elif tool_name == "add_item_note":
         note = operations.add_item_note(
@@ -216,10 +243,9 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
             project_name=tool_input.get("project_name"),
             lane_name=tool_input.get("lane_name"),
         )
-        print(
-            f"Note added to item '{tool_input['item_title']}' "
-            f"at {note['created_at']}."
-        )
+        msg = f"Note added to item '{tool_input['item_title']}' at {note['created_at']}."
+        print(msg)
+        return msg
 
     elif tool_name == "list_notes":
         notes = operations.list_notes(
@@ -230,19 +256,62 @@ def _dispatch(tool_name: str, tool_input: dict) -> None:
         )
         entity_label = f"{tool_input['entity_type']} '{tool_input['name']}'"
         if not notes:
-            print(f"No notes for {entity_label}.")
+            msg = f"No notes for {entity_label}."
+            print(msg)
         else:
-            print(f"Notes for {entity_label}:")
+            lines = [f"Notes for {entity_label}:"]
             for note in notes:
-                print(f"\n[{note['created_at']}] {note['text']}")
+                lines.append(f"\n[{note['created_at']}] {note['text']}")
+            msg = "\n".join(lines)
+            print(msg)
+        return msg
+
+    # --- Read tools ---
+    elif tool_name == "list_lanes":
+        result = operations.list_lanes()
+        print(f"Found {len(result)} lane(s).")
+        return json.dumps(result)
+
+    elif tool_name == "list_projects":
+        result = operations.list_projects(lane_name=tool_input.get("lane_name"))
+        print(f"Found {len(result)} project(s).")
+        return json.dumps(result)
+
+    elif tool_name == "list_items":
+        result = operations.list_items(
+            project_name=tool_input.get("project_name"),
+            lane_name=tool_input.get("lane_name"),
+        )
+        print(f"Found {len(result)} item(s).")
+        return json.dumps(result)
+
+    elif tool_name == "get_item":
+        try:
+            result = operations.get_item(
+                item_title=tool_input["item_title"],
+                project_name=tool_input.get("project_name"),
+                lane_name=tool_input.get("lane_name"),
+            )
+            print(f"Found item '{result['title']}' in {result['lane']}/{result['project']}.")
+            return json.dumps(result)
+        except AmbiguousMatchError as exc:
+            msg = str(exc)
+            print(msg)
+            return msg
+        except ValueError as exc:
+            msg = str(exc)
+            print(msg)
+            return msg
 
     # --- Clarification ---
     elif tool_name == "request_clarification":
         print(tool_input["question"])
+        return tool_input["question"]
 
     else:
-        print(f"Not yet implemented: {tool_name}", file=sys.stderr)
-        sys.exit(1)
+        msg = f"ERROR: Unknown tool '{tool_name}'."
+        print(msg, file=sys.stderr)
+        return msg
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -280,9 +349,9 @@ def main(argv: list[str] | None = None) -> None:
     try:
         config = load_config()
         data = load_data()
-        from todo_agent.cli.agent import resolve_intent
-        tool_name, tool_input = resolve_intent(free_text, data, config)
-        _dispatch(tool_name, tool_input)
+        from todo_agent.cli.agent import run_agent
+        summary = run_agent(free_text, data, config, _dispatch)
+        print(summary)
     except AmbiguousMatchError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)

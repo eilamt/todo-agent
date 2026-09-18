@@ -7,7 +7,7 @@ import pytest
 
 from todo_agent.core import store
 from todo_agent.cli.main import main
-from tests.conftest import make_mock_tool_response
+from tests.conftest import make_mock_tool_response, make_mock_text_response
 
 
 @pytest.fixture(autouse=True)
@@ -23,9 +23,10 @@ def use_tmp_data(tmp_data_path, monkeypatch):
 
 
 def run_with_tool(tool_name, tool_input, user_text="dummy"):
-    mock_msg = make_mock_tool_response(tool_name, tool_input)
+    mock_tool_msg = make_mock_tool_response(tool_name, tool_input)
+    mock_text_msg = make_mock_text_response()
     with patch("todo_agent.cli.agent.anthropic.Anthropic") as MockClient:
-        MockClient.return_value.messages.create.return_value = mock_msg
+        MockClient.return_value.messages.create.side_effect = [mock_tool_msg, mock_text_msg]
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
             main([user_text])
 
@@ -42,22 +43,24 @@ class TestAddLaneCLI:
 class TestDeleteLaneCLI:
     def test_cancel_preserves_data(self, tmp_data_path):
         run_with_tool("add_lane", {"name": "Work"})
-        mock_msg = make_mock_tool_response("delete_lane", {"lane_name": "Work"})
+        mock_tool_msg = make_mock_tool_response("delete_lane", {"lane_name": "Work"})
+        mock_text_msg = make_mock_text_response("Deletion cancelled.")
         with patch("todo_agent.cli.agent.anthropic.Anthropic") as MockClient, \
              patch("sys.stdin", StringIO("n\n")), \
              patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            MockClient.return_value.messages.create.return_value = mock_msg
+            MockClient.return_value.messages.create.side_effect = [mock_tool_msg, mock_text_msg]
             main(["delete Work"])
         data = store.load_data()
         assert any(l["name"] == "Work" for l in data["lanes"])
 
     def test_confirm_deletes_lane(self, tmp_data_path):
         run_with_tool("add_lane", {"name": "Work"})
-        mock_msg = make_mock_tool_response("delete_lane", {"lane_name": "Work"})
+        mock_tool_msg = make_mock_tool_response("delete_lane", {"lane_name": "Work"})
+        mock_text_msg = make_mock_text_response("Lane deleted.")
         with patch("todo_agent.cli.agent.anthropic.Anthropic") as MockClient, \
              patch("sys.stdin", StringIO("y\n")), \
              patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
-            MockClient.return_value.messages.create.return_value = mock_msg
+            MockClient.return_value.messages.create.side_effect = [mock_tool_msg, mock_text_msg]
             main(["delete Work"])
         data = store.load_data()
         assert data["lanes"] == []

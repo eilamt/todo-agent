@@ -553,3 +553,86 @@ def _find_item_by_id(data: dict, item_id: str) -> tuple[dict, dict, dict]:
                 if item["id"] == item_id:
                     return lane, project, item
     raise ValueError(f"Item not found.")
+
+
+# ---------------------------------------------------------------------------
+# Read operations (query-only, no state mutation)
+# ---------------------------------------------------------------------------
+
+def list_lanes() -> list[dict]:
+    """Return all lanes with id, name, and project_count."""
+    data = load_data()
+    return [
+        {"id": lane["id"], "name": lane["name"], "project_count": len(lane["projects"])}
+        for lane in data["lanes"]
+    ]
+
+
+def list_projects(lane_name: str | None = None) -> list[dict]:
+    """Return all projects, optionally filtered by lane name (case-insensitive)."""
+    data = load_data()
+    results = []
+    for lane in data["lanes"]:
+        if lane_name and lane["name"].lower() != lane_name.lower():
+            continue
+        for project in lane["projects"]:
+            results.append({
+                "id": project["id"],
+                "name": project["name"],
+                "lane": lane["name"],
+                "importance": project.get("importance", 50),
+                "status": project["status"],
+                "percent_complete": project.get("percent_complete", 0),
+                "item_count": len(project.get("items", [])),
+            })
+    return results
+
+
+def list_items(project_name: str | None = None, lane_name: str | None = None) -> list[dict]:
+    """Return all items, optionally filtered by project and/or lane name (case-insensitive)."""
+    data = load_data()
+    results = []
+    for lane in data["lanes"]:
+        if lane_name and lane["name"].lower() != lane_name.lower():
+            continue
+        for project in lane["projects"]:
+            if project_name and project["name"].lower() != project_name.lower():
+                continue
+            for item in project.get("items", []):
+                results.append({
+                    "id": item["id"],
+                    "title": item["title"],
+                    "project": project["name"],
+                    "lane": lane["name"],
+                    "status": item["status"],
+                    "today": item.get("today", False),
+                    "this_week": item.get("this_week", False),
+                    "deadline": item.get("deadline"),
+                    "importance": item.get("importance", 50),
+                    "description": item.get("description"),
+                })
+    return results
+
+
+def get_item(item_title: str, project_name: str | None = None, lane_name: str | None = None) -> dict:
+    """Return full details for a single item by title.
+
+    Raises:
+        ValueError: if no item is found with that title.
+        AmbiguousMatchError: if multiple items match (use project_name/lane_name to disambiguate).
+    """
+    data = load_data()
+    lane, project, item = _find_item(data, item_title, project_name, lane_name)
+    return {
+        "id": item["id"],
+        "title": item["title"],
+        "project": project["name"],
+        "lane": lane["name"],
+        "status": item["status"],
+        "today": item.get("today", False),
+        "this_week": item.get("this_week", False),
+        "deadline": item.get("deadline"),
+        "importance": item.get("importance", 50),
+        "description": item.get("description"),
+        "notes": item.get("notes", []),
+    }

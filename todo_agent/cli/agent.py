@@ -1,10 +1,12 @@
-"""LLM tool-call layer.
+"""LLM agentic loop layer.
 
 This is the ONLY file that calls the Anthropic SDK. It takes the user's
-free-text input and the current data snapshot, calls the LLM with the 16
-declared tools, and returns the selected tool name and its arguments.
+free-text input and the current data snapshot, runs the agentic tool-call
+loop, and returns the LLM's final text summary.
 
-All subsequent logic is deterministic Python in core/operations.py.
+All tool execution is delegated to the dispatch_fn callback (implemented
+in cli/main.py). All subsequent data logic is deterministic Python in
+core/operations.py (constitution Principle III).
 """
 import os
 from datetime import date
@@ -14,6 +16,8 @@ import anthropic
 from todo_agent.tools import TOOLS
 
 _VALID_TOOL_NAMES = {t["name"] for t in TOOLS}
+
+MAX_ROUNDS = 10
 
 
 def _build_data_summary(data: dict) -> str:
@@ -36,11 +40,21 @@ def _build_data_summary(data: dict) -> str:
     return "\n".join(lines) if lines else "(empty — no lanes yet)"
 
 
-def resolve_intent(user_text: str, data: dict, config: dict) -> tuple[str, dict]:
-    """Call the LLM and return (tool_name, tool_input).
+def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
+    """Run the agentic conversation loop and return the LLM's final text summary.
+
+    Args:
+        user_text:    The user's free-text command.
+        data:         Current data snapshot (read-only reference; dispatch_fn manages writes).
+        config:       Agent configuration dict (model name, etc.).
+        dispatch_fn:  Callable(tool_name: str, tool_input: dict) -> str
+                      Executes a tool and returns a result string for the LLM.
+
+    Returns:
+        The LLM's final text response after all tool calls complete.
 
     Raises:
-        ValueError: if the LLM returns no tool_use block, or an unknown tool name.
+        ValueError: If ANTHROPIC_API_KEY is not set, or if MAX_ROUNDS exceeded.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -53,33 +67,55 @@ def resolve_intent(user_text: str, data: dict, config: dict) -> tuple[str, dict]
         f"You are a to-do management assistant. Today's date is {date.today().isoformat()}.\n\n"
         "Current to-do state:\n"
         f"{_build_data_summary(data)}\n\n"
-        "Select exactly one tool to perform the user's request. "
-        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous. "
-        "For requests to display, list, show, or view data (e.g. 'list projects', 'show me all items'), "
-        "use 'request_clarification' to tell the user to run 'todo visualize' instead — "
-        "do NOT use 'list_notes' or any other tool to satisfy display requests."
+        "Use the available tools to fulfill the user's request. "
+        "You may call multiple tools in sequence to complete compound requests. "
+        "When you have finished all actions, respond with a brief summary of what was done. "
+        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous."
     )
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=1024,
-        system=system_prompt,
-        tools=TOOLS,
-        tool_choice={"type": "any"},
-        messages=[{"role": "user", "content": user_text}],
-    )
+    messages = [{"role": "user", "content": user_text}]
 
-    # Find the first tool_use block
-    for block in message.content:
-        if block.type == "tool_use":
+    for round_num in range(MAX_ROUNDS):
+        tool_choice = {"type": "any"} if round_num == 0 else {"type": "auto"}
+        response = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            system=system_prompt,
+            tools=TOOLS,
+            tool_choice=tool_choice,
+            messages=messages,
+        )
+
+        # Collect all tool_use blocks from this response
+        tool_uses = [b for b in response.content if b.type == "tool_use"]
+
+        if not tool_uses:
+            # LLM finished — extract and return the final text
+            for block in response.content:
+                if hasattr(block, "text"):
+                    return block.text
+            return "(No response from assistant.)"
+
+        # Validate and execute all tool calls in sequence
+        tool_results = []
+        for block in tool_uses:
             if block.name not in _VALID_TOOL_NAMES:
                 raise ValueError(
                     f"LLM returned unknown tool name: {block.name!r}. "
                     "This is a bug — tool list may be out of sync."
                 )
-            return block.name, block.input
+            result_str = dispatch_fn(block.name, block.input)
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": result_str,
+            })
+
+        # Append the assistant's tool-use turn and our tool results to the message history
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": tool_results})
 
     raise ValueError(
-        "LLM did not return a tool_use block. "
-        "Response content: " + str(message.content)
+        f"Agent exceeded {MAX_ROUNDS} tool-call rounds. "
+        "Partial results were printed above."
     )

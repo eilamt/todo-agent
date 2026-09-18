@@ -30,7 +30,22 @@ def make_mock_tool_response(tool_name: str, tool_input: dict):
     tool_use_block.type = "tool_use"
     tool_use_block.name = tool_name
     tool_use_block.input = tool_input
+    tool_use_block.id = "tu_test_001"
 
     message = MagicMock()
     message.content = [tool_use_block]
+    return message
+
+
+def make_mock_text_response(text: str = "Done."):
+    """
+    Return a mock anthropic.types.Message with a single text content block.
+    Used as the terminating response in the agentic loop (after tool calls complete).
+    """
+    text_block = MagicMock()
+    text_block.type = "text"
+    text_block.text = text
+
+    message = MagicMock()
+    message.content = [text_block]
     return message

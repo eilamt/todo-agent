@@ -1,9 +1,9 @@
-"""Contract tests — validate all 18 tool definitions are well-formed JSON Schema."""
+"""Contract tests — validate all 22 tool definitions are well-formed JSON Schema."""
 from todo_agent.tools import TOOLS
 
 
 def test_tool_count():
-    assert len(TOOLS) == 18, f"Expected 18 tools, got {len(TOOLS)}"
+    assert len(TOOLS) == 22, f"Expected 22 tools, got {len(TOOLS)}"
 
 
 def test_all_tool_names_present_and_non_empty():
@@ -67,3 +67,32 @@ def test_set_item_importance_required_fields_and_range():
     importance_prop = tool["input_schema"]["properties"]["importance"]
     assert importance_prop["minimum"] == 0
     assert importance_prop["maximum"] == 100
+
+
+def test_list_lanes_no_required_fields():
+    tool = next(t for t in TOOLS if t["name"] == "list_lanes")
+    assert tool["input_schema"]["required"] == []
+
+
+def test_list_projects_optional_lane_name():
+    tool = next(t for t in TOOLS if t["name"] == "list_projects")
+    assert "lane_name" in tool["input_schema"]["properties"]
+    assert "lane_name" not in tool["input_schema"]["required"]
+
+
+def test_list_items_optional_filters():
+    tool = next(t for t in TOOLS if t["name"] == "list_items")
+    props = tool["input_schema"]["properties"]
+    required = tool["input_schema"]["required"]
+    assert "project_name" in props
+    assert "lane_name" in props
+    assert "project_name" not in required
+    assert "lane_name" not in required
+
+
+def test_get_item_required_fields():
+    tool = next(t for t in TOOLS if t["name"] == "get_item")
+    assert tool["input_schema"]["required"] == ["item_title"]
+    props = tool["input_schema"]["properties"]
+    assert "project_name" in props
+    assert "lane_name" in props
