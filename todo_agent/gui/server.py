@@ -87,6 +87,19 @@ def delete_lane(lane_id: str):
     return jsonify({"deleted": result}), 200
 
 
+@app.route("/api/lanes/<lane_id>/position", methods=["PATCH"])
+def move_lane(lane_id: str):
+    body = request.get_json(force=True) or {}
+    index = body.get("index")
+    if not isinstance(index, int):
+        return jsonify({"error": "index must be an integer"}), 400
+    try:
+        operations.reorder_lane(lane_id, index)
+    except ValueError:
+        return jsonify({"error": "Lane not found."}), 404
+    return jsonify({}), 200
+
+
 @app.route("/api/lanes/<lane_id>/projects", methods=["POST"])
 def create_project(lane_id: str):
     data = load_data()
@@ -152,6 +165,19 @@ def update_project(project_id: str):
     data = load_data()
     lane, project = operations._find_project_by_id(data, project_id)
     return jsonify(project), 200
+
+
+@app.route("/api/projects/<project_id>/position", methods=["PATCH"])
+def move_project(project_id: str):
+    body = request.get_json(force=True) or {}
+    index = body.get("index")
+    if not isinstance(index, int):
+        return jsonify({"error": "index must be an integer"}), 400
+    try:
+        operations.reorder_project(project_id, index)
+    except ValueError:
+        return jsonify({"error": "Project not found."}), 404
+    return jsonify({}), 200
 
 
 @app.route("/api/projects/<project_id>", methods=["DELETE"])
@@ -230,6 +256,13 @@ def update_item(item_id: str):
             operations.set_this_week(
                 item_title=current_title,
                 value=body["this_week"],
+                project_name=project["name"],
+                lane_name=lane["name"],
+            )
+        if "this_weekend" in body:
+            operations.set_this_weekend(
+                item_title=current_title,
+                value=body["this_weekend"],
                 project_name=project["name"],
                 lane_name=lane["name"],
             )

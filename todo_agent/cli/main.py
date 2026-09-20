@@ -88,6 +88,18 @@ def _dispatch(tool_name: str, tool_input: dict) -> str:
         print(msg)
         return msg
 
+    elif tool_name == "set_this_weekend":
+        item = operations.set_this_weekend(
+            item_title=tool_input["item_title"],
+            value=tool_input["value"],
+            project_name=tool_input.get("project_name"),
+            lane_name=tool_input.get("lane_name"),
+        )
+        state = "marked as this-weekend" if item["this_weekend"] else "removed from this-weekend"
+        msg = f"'{item['title']}' {state}."
+        print(msg)
+        return msg
+
     elif tool_name == "set_deadline":
         item = operations.set_deadline(
             item_title=tool_input["item_title"],

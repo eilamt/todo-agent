@@ -5,8 +5,9 @@
 "use strict";
 
 let lastModified = null;
-let currentView = "all";   // "all" | "today" | "this-week"
+let currentView = "all";   // "all" | "today" | "this-week" | "this-weekend"
 let storeData = null;      // full data snapshot from /api/data
+let dragState = null;      // { type: "lane"|"project", id, laneId? }
 
 // ---- Initialisation -------------------------------------------------------
 
@@ -14,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Read initial view from URL ?view=...
   const params = new URLSearchParams(window.location.search);
   const viewParam = params.get("view");
-  if (["all", "today", "this-week"].includes(viewParam)) {
+  if (["all", "today", "this-week", "this-weekend"].includes(viewParam)) {
     currentView = viewParam;
   }
 
@@ -98,12 +99,47 @@ function render(data, view) {
   }
 
   data.lanes.forEach(lane => {
+    if (view !== "all") {
+      const hasMatch = lane.projects.some(p => filteredItems(p.items, view).length > 0);
+      if (!hasMatch) return;
+    }
     board.appendChild(buildLaneCol(lane, view));
   });
 }
 
 function buildLaneCol(lane, view) {
   const col = el("div", "lane-col");
+  col.dataset.laneId = lane.id;
+
+  // Lane drag-and-drop
+  col.draggable = true;
+  col.addEventListener("dragstart", e => {
+    dragState = { type: "lane", id: lane.id };
+    col.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  col.addEventListener("dragend", () => {
+    col.classList.remove("dragging");
+    document.querySelectorAll(".lane-col").forEach(c => c.classList.remove("drag-over"));
+  });
+  col.addEventListener("dragover", e => {
+    if (dragState?.type !== "lane" || dragState.id === lane.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    document.querySelectorAll(".lane-col").forEach(c => c.classList.remove("drag-over"));
+    col.classList.add("drag-over");
+  });
+  col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+  col.addEventListener("drop", async e => {
+    e.preventDefault();
+    col.classList.remove("drag-over");
+    if (dragState?.type !== "lane" || dragState.id === lane.id) return;
+    const cols = [...document.querySelectorAll(".lane-col")];
+    const newIndex = cols.indexOf(col);
+    await apiPatch(`/api/lanes/${dragState.id}/position`, { index: newIndex });
+    dragState = null;
+    await poll();
+  });
 
   // Header
   const header = el("div", "lane-header");
@@ -133,6 +169,46 @@ function buildLaneCol(lane, view) {
 
 function buildProjectSection(lane, project, visibleItems) {
   const section = el("div", "project-section");
+  section.dataset.projectId = project.id;
+  section.dataset.laneId = lane.id;
+
+  // Project drag-and-drop (within lane only)
+  section.draggable = true;
+  section.addEventListener("dragstart", e => {
+    dragState = { type: "project", id: project.id, laneId: lane.id };
+    section.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.stopPropagation(); // prevent lane drag from triggering
+  });
+  section.addEventListener("dragend", () => {
+    section.classList.remove("dragging");
+    document.querySelectorAll(".project-section").forEach(s => s.classList.remove("drag-over"));
+  });
+  section.addEventListener("dragover", e => {
+    if (dragState?.type !== "project") return;
+    if (dragState.laneId !== lane.id) return; // reject cross-lane
+    if (dragState.id === project.id) return;
+    e.preventDefault();
+    e.stopPropagation(); // don't bubble to lane dragover
+    e.dataTransfer.dropEffect = "move";
+    document.querySelectorAll(".project-section").forEach(s => s.classList.remove("drag-over"));
+    section.classList.add("drag-over");
+  });
+  section.addEventListener("dragleave", () => section.classList.remove("drag-over"));
+  section.addEventListener("drop", async e => {
+    e.preventDefault();
+    e.stopPropagation();
+    section.classList.remove("drag-over");
+    if (dragState?.type !== "project") return;
+    if (dragState.laneId !== lane.id) return; // cross-lane drop is no-op
+    if (dragState.id === project.id) return;
+    const laneEl = section.closest(".lane-col");
+    const sections = laneEl ? [...laneEl.querySelectorAll(".project-section")] : [];
+    const newIndex = sections.indexOf(section);
+    await apiPatch(`/api/projects/${dragState.id}/position`, { index: newIndex });
+    dragState = null;
+    await poll();
+  });
 
   // Header (clickable to collapse)
   const header = el("div", "project-header");
@@ -350,6 +426,20 @@ function buildItemCard(lane, project, item) {
   weekLabel.appendChild(weekCb);
   weekLabel.appendChild(document.createTextNode(" this-week"));
   controls.appendChild(weekLabel);
+
+  // This-weekend checkbox
+  const weekendLabel = el("label", "flag-label badge badge-weekend");
+  const weekendCb = el("input");
+  weekendCb.type = "checkbox";
+  weekendCb.className = "flag-cb";
+  weekendCb.checked = !!item.this_weekend;
+  weekendCb.addEventListener("change", async () => {
+    await apiPatch(`/api/items/${item.id}`, { this_weekend: weekendCb.checked });
+    await poll();
+  });
+  weekendLabel.appendChild(weekendCb);
+  weekendLabel.appendChild(document.createTextNode(" this-weekend"));
+  controls.appendChild(weekendLabel);
 
   // Deadline date input + clear
   const deadlineWrap = el("span", "deadline-wrap");
@@ -595,5 +685,6 @@ function filteredItems(items, view) {
   if (view === "all") return items;
   if (view === "today") return items.filter(i => i.today === true);
   if (view === "this-week") return items.filter(i => i.this_week === true);
+  if (view === "this-weekend") return items.filter(i => i.this_weekend === true);
   return items;
 }

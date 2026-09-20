@@ -196,6 +196,7 @@ def add_item(project_name: str, item_title: str, lane_name: str | None = None, d
         "status": "not-started",
         "today": False,
         "this_week": False,
+        "this_weekend": False,
         "deadline": None,
         "push_count": 0,
         "notes": [],
@@ -252,6 +253,20 @@ def set_this_week(
     data = load_data()
     lane, project, item = _find_item(data, item_title, project_name, lane_name)
     item["this_week"] = bool(value)
+    save_data(data)
+    return item
+
+
+def set_this_weekend(
+    item_title: str,
+    value: bool,
+    project_name: str | None = None,
+    lane_name: str | None = None,
+) -> dict:
+    """Set or clear the this_weekend flag without touching today or this_week."""
+    data = load_data()
+    lane, project, item = _find_item(data, item_title, project_name, lane_name)
+    item["this_weekend"] = bool(value)
     save_data(data)
     return item
 
@@ -525,6 +540,32 @@ def list_notes(
 
 
 # ---------------------------------------------------------------------------
+# Reorder operations
+# ---------------------------------------------------------------------------
+
+def reorder_lane(lane_id: str, new_index: int) -> None:
+    """Move a lane to new_index in the top-level lanes list (0-based, clamped)."""
+    data = load_data()
+    lane = _find_lane_by_id(data, lane_id)
+    lanes = data["lanes"]
+    lanes.remove(lane)
+    new_index = max(0, min(new_index, len(lanes)))
+    lanes.insert(new_index, lane)
+    save_data(data)
+
+
+def reorder_project(project_id: str, new_index: int) -> None:
+    """Move a project to new_index within its parent lane's projects list (0-based, clamped)."""
+    data = load_data()
+    lane, project = _find_project_by_id(data, project_id)
+    projects = lane["projects"]
+    projects.remove(project)
+    new_index = max(0, min(new_index, len(projects)))
+    projects.insert(new_index, project)
+    save_data(data)
+
+
+# ---------------------------------------------------------------------------
 # ID-based lookup helpers (used exclusively by gui/server.py)
 # ---------------------------------------------------------------------------
 
@@ -607,6 +648,7 @@ def list_items(project_name: str | None = None, lane_name: str | None = None) ->
                     "status": item["status"],
                     "today": item.get("today", False),
                     "this_week": item.get("this_week", False),
+                    "this_weekend": item.get("this_weekend", False),
                     "deadline": item.get("deadline"),
                     "importance": item.get("importance", 50),
                     "description": item.get("description"),
@@ -631,6 +673,7 @@ def get_item(item_title: str, project_name: str | None = None, lane_name: str | 
         "status": item["status"],
         "today": item.get("today", False),
         "this_week": item.get("this_week", False),
+        "this_weekend": item.get("this_weekend", False),
         "deadline": item.get("deadline"),
         "importance": item.get("importance", 50),
         "description": item.get("description"),

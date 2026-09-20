@@ -267,6 +267,35 @@ TOOLS = [
         },
     },
     {
+        "name": "set_this_weekend",
+        "description": (
+            "Mark or unmark an item as something to work on this weekend. "
+            "Does not affect the today or this_week flags."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_title": {
+                    "type": "string",
+                    "description": "Title of the item.",
+                },
+                "value": {
+                    "type": "boolean",
+                    "description": "true to mark as this-weekend, false to unmark.",
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project name for disambiguation.",
+                },
+                "lane_name": {
+                    "type": "string",
+                    "description": "Lane name for disambiguation.",
+                },
+            },
+            "required": ["item_title", "value"],
+        },
+    },
+    {
         "name": "set_deadline",
         "description": "Set or clear the deadline on an item.",
         "input_schema": {

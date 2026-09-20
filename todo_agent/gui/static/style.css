@@ -55,7 +55,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
   border-radius: 10px;
   padding: 0.75rem;
   flex-shrink: 0;
+  cursor: grab;
 }
+.lane-col.dragging  { opacity: 0.4; cursor: grabbing; }
+.lane-col.drag-over { outline: 2px dashed #6c757d; outline-offset: 2px; }
 .lane-header {
   display: flex;
   align-items: center;
@@ -71,7 +74,10 @@ header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
   margin-bottom: 0.6rem;
   overflow: hidden;
   border: 1px solid #ddd;
+  cursor: grab;
 }
+.project-section.dragging  { opacity: 0.4; cursor: grabbing; }
+.project-section.drag-over { outline: 2px dashed #6c757d; outline-offset: 2px; }
 .project-header {
   display: flex;
   align-items: center;
@@ -113,6 +119,7 @@ header h1 { font-size: 1.1rem; font-weight: 700; color: #333; }
 }
 .badge-today       { background: #fff3cd; color: #856404; }
 .badge-week        { background: #cfe2ff; color: #084298; }
+.badge-weekend     { background: #d1e7dd; color: #0a3622; }
 .badge-deadline    { background: #f8d7da; color: #842029; }
 .badge-importance  { background: #805ad5; color: #fff; }
 

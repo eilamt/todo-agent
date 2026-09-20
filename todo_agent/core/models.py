@@ -57,6 +57,7 @@ class Item:
     status: str = "not-started"
     today: bool = False
     this_week: bool = False
+    this_weekend: bool = False
     deadline: str | None = None
     push_count: int = 0
     notes: list = field(default_factory=list)

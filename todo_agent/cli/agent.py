@@ -33,6 +33,8 @@ def _build_data_summary(data: dict) -> str:
                     flags.append("today")
                 if item.get("this_week"):
                     flags.append("this-week")
+                if item.get("this_weekend"):
+                    flags.append("this-weekend")
                 flag_str = f" [{', '.join(flags)}]" if flags else ""
                 lines.append(
                     f"    Item: {item['title']} (status={item['status']}{flag_str})"
