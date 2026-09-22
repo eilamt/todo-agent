@@ -1,9 +1,9 @@
-"""Contract tests — validate all 23 tool definitions are well-formed JSON Schema."""
+"""Contract tests — validate all 27 tool definitions are well-formed JSON Schema."""
 from todo_agent.tools import TOOLS
 
 
 def test_tool_count():
-    assert len(TOOLS) == 23, f"Expected 23 tools, got {len(TOOLS)}"
+    assert len(TOOLS) == 27, f"Expected 27 tools, got {len(TOOLS)}"
 
 
 def test_all_tool_names_present_and_non_empty():

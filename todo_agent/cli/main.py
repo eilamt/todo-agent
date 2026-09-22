@@ -8,6 +8,7 @@ import json
 import sys
 
 from todo_agent.config import load_config
+from todo_agent.core import inbox as inbox_ops
 from todo_agent.core import operations
 from todo_agent.core.operations import AmbiguousMatchError
 from todo_agent.core.store import load_data
@@ -314,6 +315,43 @@ def _dispatch(tool_name: str, tool_input: dict) -> str:
             msg = str(exc)
             print(msg)
             return msg
+
+    # --- Inbox operations ---
+    elif tool_name == "add_inbox_note":
+        note = inbox_ops.add_inbox_note(
+            title=tool_input["title"],
+            body=tool_input.get("body", ""),
+        )
+        msg = f"Inbox note '{note['title']}' created (slug: {note['slug']})."
+        print(msg)
+        return msg
+
+    elif tool_name == "list_inbox_notes":
+        notes = inbox_ops.list_inbox_notes()
+        if not notes:
+            msg = "Inbox is empty."
+            print(msg)
+        else:
+            lines = [f"Inbox ({len(notes)} note(s)):"]
+            for n in notes:
+                status = "[promoted]" if n["promoted"] else "[not promoted]"
+                lines.append(f"  {status} {n['title']}")
+            msg = "\n".join(lines)
+            print(msg)
+        return msg
+
+    elif tool_name == "get_inbox_note":
+        note = inbox_ops.get_inbox_note(tool_input["title"])
+        status = "[promoted]" if note["promoted"] else "[not promoted]"
+        msg = f"Note: {note['title']} {status}\n\n{note['body']}"
+        print(msg)
+        return json.dumps(note)
+
+    elif tool_name == "mark_note_promoted":
+        note = inbox_ops.mark_note_promoted(tool_input["title"])
+        msg = f"Inbox note '{note['title']}' marked as promoted."
+        print(msg)
+        return msg
 
     # --- Clarification ---
     elif tool_name == "request_clarification":

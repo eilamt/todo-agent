@@ -14,6 +14,7 @@ from email.utils import formatdate
 from flask import Flask, jsonify, render_template, request
 
 from todo_agent.config import get_data_file_path
+from todo_agent.core import inbox as inbox_ops
 from todo_agent.core import operations
 from todo_agent.core.store import load_data, recalculate_percent_complete, save_data
 
@@ -316,6 +317,58 @@ def delete_item(item_id: str):
         "deleted": {"item_title": result["item_title"]},
         "project_percent_complete": result["project_percent_complete"],
     }), 200
+
+
+# ---------------------------------------------------------------------------
+# Inbox routes
+# ---------------------------------------------------------------------------
+
+@app.route("/api/inbox", methods=["GET"])
+def list_inbox():
+    notes = inbox_ops.list_inbox_notes()
+    return jsonify(notes), 200
+
+
+@app.route("/api/inbox", methods=["POST"])
+def create_inbox_note():
+    body = request.get_json(force=True) or {}
+    title = body.get("title", "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    try:
+        note = inbox_ops.add_inbox_note(title=title, body=body.get("body", ""))
+        return jsonify(note), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/inbox/<slug>", methods=["GET"])
+def get_inbox_note(slug: str):
+    notes = inbox_ops.list_inbox_notes()
+    match = next((n for n in notes if n["slug"] == slug), None)
+    if not match:
+        return jsonify({"error": "Note not found"}), 404
+    try:
+        note = inbox_ops.get_inbox_note(match["title"])
+        return jsonify(note), 200
+    except ValueError:
+        return jsonify({"error": "Note not found"}), 404
+
+
+@app.route("/api/inbox/<slug>", methods=["PATCH"])
+def update_inbox_note(slug: str):
+    body = request.get_json(force=True) or {}
+    notes = inbox_ops.list_inbox_notes()
+    match = next((n for n in notes if n["slug"] == slug), None)
+    if not match:
+        return jsonify({"error": "Note not found"}), 404
+    if body.get("promoted") is True:
+        try:
+            note = inbox_ops.mark_note_promoted(match["title"])
+            return jsonify(note), 200
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+    return jsonify({"error": "No valid fields to update"}), 400
 
 
 # ---------------------------------------------------------------------------

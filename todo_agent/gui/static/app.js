@@ -5,9 +5,12 @@
 "use strict";
 
 let lastModified = null;
-let currentView = "all";   // "all" | "today" | "this-week" | "this-weekend"
+let currentView = "all";   // "all" | "today" | "this-week" | "this-weekend" | "inbox"
 let storeData = null;      // full data snapshot from /api/data
 let dragState = null;      // { type: "lane"|"project", id, laneId? }
+let inboxNotes = [];       // list of inbox note summaries
+let inboxPollTimer = null; // setInterval handle for inbox polling
+let selectedNoteSlug = null; // currently selected note slug
 
 // ---- Initialisation -------------------------------------------------------
 
@@ -15,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Read initial view from URL ?view=...
   const params = new URLSearchParams(window.location.search);
   const viewParam = params.get("view");
-  if (["all", "today", "this-week", "this-weekend"].includes(viewParam)) {
+  if (["all", "today", "this-week", "this-weekend", "inbox"].includes(viewParam)) {
     currentView = viewParam;
   }
 
@@ -28,7 +31,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".filter-btn[data-view]").forEach(b =>
         b.classList.toggle("active", b === btn)
       );
-      if (storeData) render(storeData, currentView);
+      if (currentView === "inbox") {
+        startInboxPolling();
+        renderInbox();
+      } else {
+        stopInboxPolling();
+        if (storeData) render(storeData, currentView);
+      }
     });
   });
 
@@ -65,7 +74,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  poll();
+  if (currentView === "inbox") {
+    startInboxPolling();
+    fetchInbox();
+  } else {
+    poll();
+  }
   setInterval(poll, 5000);
 });
 
@@ -90,8 +104,14 @@ async function poll() {
 // ---- Render ---------------------------------------------------------------
 
 function render(data, view) {
+  if (view === "inbox") { renderInbox(); return; }
+
   const board = document.getElementById("board");
   board.innerHTML = "";
+
+  // Hide inbox panel when showing board views
+  const inboxPanel = document.getElementById("inbox-panel");
+  if (inboxPanel) inboxPanel.remove();
 
   if (!data.lanes || data.lanes.length === 0) {
     board.innerHTML = '<p class="empty-state">No lanes yet. Add one above.</p>';
@@ -677,6 +697,108 @@ function el(tag, className) {
   const e = document.createElement(tag);
   if (className) e.className = className;
   return e;
+}
+
+// ---- Inbox ----------------------------------------------------------------
+
+function startInboxPolling() {
+  if (inboxPollTimer) return;
+  inboxPollTimer = setInterval(fetchInbox, 5000);
+}
+
+function stopInboxPolling() {
+  if (inboxPollTimer) { clearInterval(inboxPollTimer); inboxPollTimer = null; }
+}
+
+async function fetchInbox() {
+  try {
+    const res = await fetch("/api/inbox");
+    if (!res.ok) return;
+    inboxNotes = await res.json();
+    if (currentView === "inbox") renderInbox();
+  } catch (_) { /* ignore network errors */ }
+}
+
+function renderInbox() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  let panel = document.getElementById("inbox-panel");
+  if (!panel) {
+    panel = el("div", "");
+    panel.id = "inbox-panel";
+    board.appendChild(panel);
+  } else {
+    board.appendChild(panel);
+  }
+
+  if (inboxNotes.length === 0) {
+    panel.innerHTML = '<p class="empty-state">Inbox is empty. Add notes via the CLI.</p>';
+    return;
+  }
+
+  const list = el("div", "inbox-list");
+  inboxNotes.forEach(note => {
+    const row = el("div", "inbox-item");
+    if (note.slug === selectedNoteSlug) row.classList.add("selected");
+
+    const title = el("span", "inbox-item-title");
+    title.textContent = note.title;
+
+    const badge = el("span", note.promoted ? "badge-promoted" : "badge-unpromoted");
+    badge.textContent = note.promoted ? "promoted" : "not promoted";
+
+    row.appendChild(title);
+    row.appendChild(badge);
+    row.addEventListener("click", () => showNoteDetail(note));
+    list.appendChild(row);
+  });
+
+  panel.innerHTML = "";
+  panel.appendChild(list);
+
+  if (selectedNoteSlug) {
+    const current = inboxNotes.find(n => n.slug === selectedNoteSlug);
+    if (current) showNoteDetail(current, panel);
+  }
+}
+
+async function showNoteDetail(note, container) {
+  selectedNoteSlug = note.slug;
+
+  // Re-render list to update selection highlight
+  const panel = container || document.getElementById("inbox-panel");
+  if (!panel) return;
+
+  // Fetch full note with body
+  let full = note;
+  try {
+    const res = await fetch(`/api/inbox/${note.slug}`);
+    if (res.ok) full = await res.json();
+  } catch (_) { /* use summary if fetch fails */ }
+
+  // Remove existing detail panel if any
+  const existing = panel.querySelector(".inbox-detail");
+  if (existing) existing.remove();
+
+  // Update selection state in list
+  panel.querySelectorAll(".inbox-item").forEach(row => {
+    row.classList.toggle("selected", row.querySelector(".inbox-item-title").textContent === note.title);
+  });
+
+  const detail = el("div", "inbox-detail");
+  const h3 = el("h3", "");
+  h3.textContent = full.title;
+  const meta = el("div", "inbox-meta");
+  const status = full.promoted ? "promoted" : "not promoted";
+  meta.textContent = `${status}${full.created_at ? " · " + full.created_at : ""}`;
+  const body = el("pre", "inbox-body");
+  body.textContent = full.body || "(no content)";
+
+  detail.appendChild(h3);
+  detail.appendChild(meta);
+  detail.appendChild(body);
+  panel.appendChild(detail);
 }
 
 // ---- Filter helper --------------------------------------------------------

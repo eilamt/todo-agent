@@ -1,4 +1,4 @@
-"""Static list of 22 LLM-callable tool definitions.
+"""Static list of 27 LLM-callable tool definitions.
 
 Passed verbatim as the `tools` parameter to client.messages.create().
 The LLM selects exactly one tool per invocation; all subsequent logic
@@ -563,6 +563,77 @@ TOOLS = [
                 },
             },
             "required": ["item_title"],
+        },
+    },
+    {
+        "name": "add_inbox_note",
+        "description": (
+            "Create a new inbox note to capture an idea not yet ready for the project board. "
+            "The note is saved as a markdown file in the inbox directory."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title of the note. Must be non-empty.",
+                },
+                "body": {
+                    "type": "string",
+                    "description": (
+                        "Full body text of the note (markdown). "
+                        "May include a '## Promote to' section with instructions for promotion."
+                    ),
+                },
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "list_inbox_notes",
+        "description": (
+            "List all inbox notes with their title and promoted status. "
+            "Use this to answer questions like 'what ideas do I have in my inbox?' or 'show my inbox'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_inbox_note",
+        "description": (
+            "Return the full content (including body and '## Promote to' section) of a single inbox note by title. "
+            "Use before promoting a note so the agent can read the promotion instructions."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title of the note to retrieve (case-insensitive).",
+                },
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "mark_note_promoted",
+        "description": (
+            "Mark an inbox note as promoted (sets promoted=true in the note file). "
+            "Call this AFTER all board actions from the '## Promote to' section have been executed successfully. "
+            "Idempotent — safe to call on an already-promoted note."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title of the note to mark as promoted.",
+                },
+            },
+            "required": ["title"],
         },
     },
     {

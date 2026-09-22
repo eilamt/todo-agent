@@ -36,3 +36,8 @@ def get_data_file_path() -> Path:
         return Path(env_override).expanduser()
     config = load_config()
     return Path(config["data_file"]).expanduser()
+
+
+def get_inbox_dir() -> Path:
+    """Return the Path to the inbox directory (~/.todo-agent/inbox/)."""
+    return _TODO_DIR / "inbox"

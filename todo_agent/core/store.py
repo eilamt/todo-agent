@@ -7,11 +7,36 @@ import json
 import math
 import os
 import tempfile
+from datetime import date
 from pathlib import Path
 
 from todo_agent.config import get_data_file_path
 
 _EMPTY_STORE = {"version": "1", "lanes": []}
+
+
+def apply_deadline_flags(data: dict) -> None:
+    """Additively set today/this_week flags based on each item's deadline.
+
+    Applied in-memory only — never written back to the JSON file.
+    Manually-set flags are never cleared (additive only).
+    """
+    today = date.today()
+    today_iso = today.isocalendar()[:2]  # (ISO year, ISO week)
+    for lane in data.get("lanes", []):
+        for project in lane.get("projects", []):
+            for item in project.get("items", []):
+                deadline_str = item.get("deadline")
+                if not deadline_str:
+                    continue
+                try:
+                    deadline = date.fromisoformat(deadline_str)
+                except (ValueError, TypeError):
+                    continue
+                if deadline == today:
+                    item["today"] = True
+                if deadline.isocalendar()[:2] == today_iso:
+                    item["this_week"] = True
 
 
 def load_data() -> dict:
@@ -20,9 +45,13 @@ def load_data() -> dict:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         path.write_text(json.dumps(_EMPTY_STORE, indent=2))
-        return json.loads(json.dumps(_EMPTY_STORE))  # return a fresh copy
+        data = json.loads(json.dumps(_EMPTY_STORE))
+        apply_deadline_flags(data)
+        return data
     with path.open() as f:
-        return json.load(f)
+        data = json.load(f)
+    apply_deadline_flags(data)
+    return data
 
 
 def save_data(data: dict) -> None:

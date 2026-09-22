@@ -72,7 +72,17 @@ def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
         "Use the available tools to fulfill the user's request. "
         "You may call multiple tools in sequence to complete compound requests. "
         "When you have finished all actions, respond with a brief summary of what was done. "
-        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous."
+        "Prefer 'request_clarification' over any destructive action when the intent is ambiguous.\n\n"
+        "INBOX PROMOTION WORKFLOW: When the user asks to promote an inbox note, follow these steps:\n"
+        "1. Call get_inbox_note to read the full note content including the '## Promote to' section.\n"
+        "2. If the note is already promoted (promoted=true), warn the user and ask for explicit confirmation before continuing.\n"
+        "3. Read the '## Promote to' section and determine what board actions to take "
+        "(create projects, create items, append notes to projects).\n"
+        "4. If the section references a lane that does not exist, ask the user to confirm creation before proceeding.\n"
+        "5. Execute each board action using the appropriate existing tools "
+        "(add_project, add_item, add_project_note, etc.).\n"
+        "6. Only after ALL actions succeed, call mark_note_promoted to mark the note as promoted.\n"
+        "7. Report which actions were taken and confirm the note is now marked promoted."
     )
 
     messages = [{"role": "user", "content": user_text}]
