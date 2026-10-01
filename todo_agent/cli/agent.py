@@ -9,10 +9,14 @@ in cli/main.py). All subsequent data logic is deterministic Python in
 core/operations.py (constitution Principle III).
 """
 import os
-from datetime import date
+import time
+import uuid
+from datetime import date, datetime, timezone
 
 import anthropic
 
+from todo_agent import instrumentation
+from todo_agent.config import get_inbox_dir
 from todo_agent.tools import TOOLS
 
 _VALID_TOOL_NAMES = {t["name"] for t in TOOLS}
@@ -42,7 +46,22 @@ def _build_data_summary(data: dict) -> str:
     return "\n".join(lines) if lines else "(empty — no lanes yet)"
 
 
-def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
+def _build_compact_index(data: dict) -> str:
+    """Return a compact lane/project/count index for the LLM context."""
+    lines = []
+    for lane in data.get("lanes", []):
+        lines.append(f"Lane: {lane['name']}")
+        for project in lane.get("projects", []):
+            lines.append(f"  Project: {project['name']} ({len(project.get('items', []))} items)")
+    if not lines:
+        return "(empty board)"
+    inbox_notes = list(get_inbox_dir().glob("*.md"))
+    if inbox_notes:
+        lines.append(f"Inbox: {len(inbox_notes)} note(s)")
+    return "\n".join(lines)
+
+
+def run_agent(user_text: str, data: dict, config: dict, dispatch_fn, replay: bool = False) -> str:
     """Run the agentic conversation loop and return the LLM's final text summary.
 
     Args:
@@ -51,6 +70,7 @@ def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
         config:       Agent configuration dict (model name, etc.).
         dispatch_fn:  Callable(tool_name: str, tool_input: dict) -> str
                       Executes a tool and returns a result string for the LLM.
+        replay:       When True, log records are tagged with replay=True.
 
     Returns:
         The LLM's final text response after all tool calls complete.
@@ -64,15 +84,18 @@ def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
 
     client = anthropic.Anthropic(api_key=api_key)
     model = config.get("model", "claude-haiku-4-5-20251001")
+    request_id = str(uuid.uuid4())
+    _prev_call_dt = instrumentation.get_last_call_timestamp()
 
-    system_prompt = (
+    _static = (
         f"You are a to-do management assistant. Today's date is {date.today().isoformat()}.\n\n"
-        "Current to-do state:\n"
-        f"{_build_data_summary(data)}\n\n"
         "Use the available tools to fulfill the user's request. "
         "You may call multiple tools in sequence to complete compound requests. "
         "When you have finished all actions, respond with a brief summary of what was done. "
         "Prefer 'request_clarification' over any destructive action when the intent is ambiguous.\n\n"
+        "The board index below shows lanes, projects, and item counts only. "
+        "Call list_items, get_item, list_inbox_notes, or get_inbox_note to fetch item-level detail "
+        "— titles, statuses, flags, deadlines, descriptions — when needed to fulfill the request.\n\n"
         "INBOX PROMOTION WORKFLOW: When the user asks to promote an inbox note, follow these steps:\n"
         "1. Call get_inbox_note to read the full note content including the '## Promote to' section.\n"
         "2. If the note is already promoted (promoted=true), warn the user and ask for explicit confirmation before continuing.\n"
@@ -84,19 +107,31 @@ def run_agent(user_text: str, data: dict, config: dict, dispatch_fn) -> str:
         "6. Only after ALL actions succeed, call mark_note_promoted to mark the note as promoted.\n"
         "7. Report which actions were taken and confirm the note is now marked promoted."
     )
+    _dynamic = f"Current board:\n{_build_compact_index(data)}"
 
     messages = [{"role": "user", "content": user_text}]
 
     for round_num in range(MAX_ROUNDS):
         tool_choice = {"type": "any"} if round_num == 0 else {"type": "auto"}
+        _t0 = time.monotonic()
         response = client.messages.create(
             model=model,
             max_tokens=1024,
-            system=system_prompt,
+            system=[
+                {"type": "text", "text": _static, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": _dynamic},
+            ],
             tools=TOOLS,
             tool_choice=tool_choice,
             messages=messages,
         )
+        _latency_ms = int((time.monotonic() - _t0) * 1000)
+        _now = datetime.now(timezone.utc)
+        _seconds_since = (_now - _prev_call_dt).total_seconds() if _prev_call_dt else None
+        instrumentation.append_log_record(
+            instrumentation.build_log_record(request_id, response, _latency_ms, _seconds_since, replay=replay)
+        )
+        _prev_call_dt = _now
 
         # Collect all tool_use blocks from this response
         tool_uses = [b for b in response.content if b.type == "tool_use"]
