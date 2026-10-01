@@ -372,9 +372,53 @@ def main(argv: list[str] | None = None) -> None:
     if not argv:
         print(
             "Usage: todo \"<natural language command>\"\n"
-            "       todo visualize [all|today|this-week]"
+            "       todo visualize [all|today|this-week]\n"
+            "       todo cost report\n"
+            "       todo cost prefix\n"
+            "       todo cost replay <utterances_file> [--gap SECONDS] [--output FILE]"
         )
         sys.exit(0)
+
+    # Reserved subcommand: cost
+    if argv[0] == "cost":
+        from todo_agent.cli import cost as cost_cmds
+        if len(argv) < 2:
+            print("Usage: todo cost {report|prefix|replay <file>}", file=sys.stderr)
+            sys.exit(1)
+        sub = argv[1]
+        if sub == "report":
+            cost_cmds.cmd_report()
+            return
+        elif sub == "prefix":
+            cost_cmds.cmd_prefix()
+            return
+        elif sub == "replay":
+            if len(argv) < 3:
+                print("Usage: todo cost replay <utterances_file> [--gap SECONDS] [--output FILE]", file=sys.stderr)
+                sys.exit(1)
+            utterances_path = argv[2]
+            gap = 1.0
+            output = "replay_output.jsonl"
+            rest = argv[3:]
+            i = 0
+            while i < len(rest):
+                if rest[i] == "--gap" and i + 1 < len(rest):
+                    try:
+                        gap = float(rest[i + 1])
+                    except ValueError:
+                        print(f"Invalid --gap value: {rest[i+1]}", file=sys.stderr)
+                        sys.exit(1)
+                    i += 2
+                elif rest[i] == "--output" and i + 1 < len(rest):
+                    output = rest[i + 1]
+                    i += 2
+                else:
+                    i += 1
+            cost_cmds.cmd_replay(utterances_path, gap, output)
+            return
+        else:
+            print(f"Unknown cost subcommand: {sub}", file=sys.stderr)
+            sys.exit(1)
 
     # Reserved subcommand: visualize
     if argv[0] == "visualize":

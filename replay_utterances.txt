@@ -1,0 +1,37 @@
+# Replay utterances for cost baseline measurement
+# One utterance per line; blank lines and # lines are ignored.
+# Run: todo cost replay replay_utterances.txt --gap 1 --output replay_output.jsonl
+
+# --- Read operations (executed normally) ---
+list all my lanes
+show me all my projects
+list items in all projects
+show me what's due today
+show me items flagged for this week
+show me items flagged for this weekend
+list inbox notes
+show me my inbox
+
+# --- Board write operations (dry-run, no data modified) ---
+add a lane called Personal
+add a project called API Refactor to the Work lane
+add a task to write unit tests to the API Refactor project
+add a task to review pull requests to the API Refactor project
+mark write unit tests as completed
+set write unit tests as in-progress
+flag write unit tests as today
+flag review pull requests as this week
+set a deadline of next Friday on write unit tests
+add a note to the API Refactor project: focus on auth endpoints first
+set the importance of API Refactor to 80
+
+# --- Inbox operations (mix of read and write) ---
+add an inbox note called redesign login flow with body: the current flow has too many steps. Consider OAuth2. ## Promote to\nCreate a project in Work lane called Login Redesign
+add an inbox note called improve test coverage
+list inbox notes
+get the inbox note about redesign login flow
+promote the redesign login flow note
+
+# --- Compound / multi-step requests ---
+show me all items that are not started across all projects
+add a project called Q4 Planning to the Work lane and add a task called write OKRs to it

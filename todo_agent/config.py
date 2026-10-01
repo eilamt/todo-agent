@@ -41,3 +41,24 @@ def get_data_file_path() -> Path:
 def get_inbox_dir() -> Path:
     """Return the Path to the inbox directory (~/.todo-agent/inbox/)."""
     return _TODO_DIR / "inbox"
+
+
+def get_log_path() -> Path:
+    """Return the Path to the API call log (~/.todo-agent/api-calls.jsonl)."""
+    return _TODO_DIR / "api-calls.jsonl"
+
+
+# Haiku 4.5 prices in USD per million tokens, last verified 2026-09-22.
+# Update last_verified when re-confirming against console.anthropic.com.
+PRICE_TABLE = {
+    "input": 1.00,
+    "cache_write_5m": 1.25,
+    "cache_write_1h": 2.00,
+    "cache_read": 0.10,
+    "output": 5.00,
+    "last_verified": "2026-09-22",
+}
+
+# Minimum token count for a prefix to qualify for prompt caching on Haiku 4.5.
+# Source: Anthropic documentation, last verified 2026-09-22.
+MIN_CACHEABLE_PREFIX_TOKENS = 4096
