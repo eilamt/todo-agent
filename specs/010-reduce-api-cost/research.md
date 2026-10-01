@@ -11,13 +11,13 @@
 
 **Format**:
 ```
-Lane: work
-  Project: ains (8 items)
-  Project: physical-ai (2 items)
-Lane: fiction
-  Project: translate (1 items)
+Lane: <lane-name>
+  Project: <project-name> (<N> items)
+  Project: <project-name> (<N> items)
+Lane: <lane-name>
+  Project: <project-name> (<N> items)
 ...
-Inbox: 3 note(s)
+Inbox: <N> note(s)
 ```
 
 **Rationale**: The agent's existing `list_items` tool already returns `today`, `this_week`, `this_weekend`, `deadline`, `status`, `importance`, and `description` per item. Its description explicitly says "Use this to answer questions like 'what items are due today?'". No new tools are required; the agent fetches detail on demand exactly as the tool descriptions instruct.
