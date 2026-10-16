@@ -9,6 +9,7 @@ local machine (constitution Principle I).
 import os
 import socket
 import webbrowser
+from datetime import date, datetime, time
 from email.utils import formatdate
 
 from flask import Flask, jsonify, render_template, request
@@ -39,6 +40,17 @@ def _mtime() -> float:
         return 0.0
 
 
+def _effective_mtime() -> float:
+    """Return max(file mtime, today's local midnight).
+
+    Deadline flags are recomputed in-memory each day, so the cache must be
+    invalidated at day boundaries even when the data file hasn't changed.
+    """
+    file_mtime = _mtime()
+    today_midnight = datetime.combine(date.today(), time.min).timestamp()
+    return max(file_mtime, today_midnight)
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -50,7 +62,7 @@ def index():
 
 @app.route("/api/data", methods=["GET"])
 def get_data():
-    mtime = _mtime()
+    mtime = _effective_mtime()
     last_modified = _http_date(mtime)
 
     if_modified_since = request.headers.get("If-Modified-Since")
