@@ -224,6 +224,7 @@ def create_item(project_id: str):
             project_name=project["name"],
             item_title=title,
             lane_name=lane["name"],
+            today=bool(body.get("today", False)),
         )
         return jsonify(item), 201
     except ValueError as exc:

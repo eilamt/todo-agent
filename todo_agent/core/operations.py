@@ -178,7 +178,7 @@ def add_project(lane_name: str, project_name: str, importance: int = 50) -> dict
     return new_project
 
 
-def add_item(project_name: str, item_title: str, lane_name: str | None = None, description: str | None = None, importance: int = 50) -> dict:
+def add_item(project_name: str, item_title: str, lane_name: str | None = None, description: str | None = None, importance: int = 50, today: bool = False) -> dict:
     """Create a new item inside a project."""
     data = load_data()
     lane, project = _find_project(data, project_name, lane_name)
@@ -194,7 +194,7 @@ def add_item(project_name: str, item_title: str, lane_name: str | None = None, d
         "id": str(uuid.uuid4()),
         "title": item_title,
         "status": "not-started",
-        "today": False,
+        "today": today,
         "this_week": False,
         "this_weekend": False,
         "deadline": None,

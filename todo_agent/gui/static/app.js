@@ -544,7 +544,7 @@ function buildAddItemForm(lane, project) {
   addBtn.addEventListener("click", async () => {
     const title = input.value.trim();
     if (!title) return;
-    await apiPost(`/api/projects/${project.id}/items`, { title });
+    await apiPost(`/api/projects/${project.id}/items`, { title, today: currentView === "today" });
     input.value = "";
     await poll();
   });
